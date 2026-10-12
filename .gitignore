@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Xcode user settings and build output
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Local credentials
+.env
+.env.*
+!.env.example
