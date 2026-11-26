@@ -189,7 +189,7 @@ button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cu
 <div style="display:flex;flex-direction:column;gap:8px"><h2 id="s-plat" class="h2">四端适配</h2><p class="lead">Mac 是唯一的执行端。iPad、iPhone 与 iPhone Duo 是连到 Mac 的 Companion（docs/03 目前把 Mobile Companion 列为 Cut，待拍板）。布局一律由尺寸类决定，不看机型。</p></div>
 <div class="tbl" style="grid-template-columns:150px repeat(4,minmax(0,1fr))">
 <div class="th-cell"></div><div class="th-cell">Mac</div><div class="th-cell">iPad</div><div class="th-cell">iPhone</div><div class="th-cell">iPhone Duo</div>
-<div style="font-weight:600">导航结构</div><div>浮动玻璃侧栏 + 对话 + 按需 Diff Inspector（⌘⇧D）</div><div>三栏 NavigationSplitView；打开 Diff 时侧栏自动收起</div><div>Tab 栏（等你处理 / 全部会话 / 设置 + 搜索）+ 推入会话</div><div>系统竖条在右侧：标签栏、工具栏按钮竖排进这一列，内容在左。内屏宽度为 regular 时用侧栏 + 对话；变窄回到单栏</div>
+<div style="font-weight:600">导航结构</div><div>浮动玻璃侧栏 + 对话 + 按需 Diff Inspector（⌘⇧D）</div><div>三栏 NavigationSplitView；打开 Diff 时侧栏自动收起</div><div>Tab 栏（等你处理 / 全部会话 / 设置 + 搜索）+ 推入会话</div><div>外屏与内屏横向：控件移到摄像头一侧的竖条，自上而下为状态栏、工具栏（返回在最上）、标签栏；内屏 regular 宽度时侧栏 + 对话；分屏时控件在各自外侧</div>
 <div style="font-weight:600">玻璃表面</div><div>侧栏、工具栏胶囊组、输入框、弹层、Sheet、菜单栏 Popover</div><div>侧栏、工具栏、输入框、Popover</div><div>Tab 栏、返回与工具按钮、输入框、Sheet、锁屏通知</div><div>右侧竖条里的按钮组与搜索；背景铺满竖条区</div>
 <div style="font-weight:600">审批</div><div>内联审批条，⌘↩ / ⌘⌫；菜单栏不提供盲批</div><div>内联审批条，44pt 触控</div><div>会话内审批卡；拒绝走底部 Sheet；锁屏只能「打开查看」</div><div>合上 / 展开时审批卡与草稿保持</div>
 <div style="font-weight:600">权限档位</div><div>五档全提供；「完全放行」逐会话确认</div><div>只显示，不提供「完全放行」</div><div>只显示，不提供「完全放行」</div><div>同 iPhone</div>

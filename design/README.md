@@ -10,7 +10,7 @@ UI 与交互的原型和设计稿，依据 `docs/` 中的方案计划书（重�
 - **设计系统**：Notion Analysis。颜色、字体（Inter）、间距、圆角、阴影都用它的 token，安装记录在 `canvas.json` 的 `designSystems` 中，画布上的 token 副本在 `project/ds/notionanalysis/`。
 - **材质与规范**：Apple HIG 与 Liquid Glass。玻璃只用于导航层（侧栏、工具栏、输入框、弹层、Sheet、Tab 栏），内容层保持纸面和 surface 白。
 - **深色外观**：设计系统没有深色主题。深色值是按同一套暖灰推导的提议值，见「设计规范」页的颜色表；确认后应回写到设计系统。
-- **iPhone Duo**：依据 Xcode 的 app-resizability 指引，并在 iPhone Duo 模拟器（iOS 27.2）上核对。外屏和内屏的系统竖条都在右侧，标签栏与工具栏按钮竖排进这一列。
+- **iPhone Duo**：依据 Apple HIG「Designing for iPhone Duo」（https://developer.apple.com/design/human-interface-guidelines/designing-for-iphone-duo ），代码侧参考 Xcode 的 app-resizability skill，并在 iPhone Duo 模拟器（iOS 27.2）上核对。外屏和内屏横向时，工具栏、标签栏、导航按钮都移到摄像头一侧的竖条里；分屏时两个 App 各自把控件放在外侧。要点整理在用户级 skill `iphone-duo-design` 里。
 
 ## 画板
 
@@ -30,7 +30,7 @@ UI 与交互的原型和设计稿，依据 `docs/` 中的方案计划书（重�
 | iPhone Duo | `DuoOuter.dc.html` | 外屏（合上） |
 | iPhone Duo | `DuoInner.dc.html` | 内屏（展开，深色） |
 | iPhone Duo | `DuoHalfOpen.dc.html` | 半开书本姿态：左对话、右 Diff |
-| iPhone Duo | `DuoSplit.dc.html` | 内屏分屏，变窄后回到单栏 |
+| iPhone Duo | `DuoSplit.dc.html` | 内屏分屏，变窄后回到单栏，控件在各自外侧 |
 | 设计规范 | `Foundations.dc.html` | 两层结构、颜色与深色、五种状态、字体、玻璃材质、核心组件、四端适配 |
 
 ## 待拍板

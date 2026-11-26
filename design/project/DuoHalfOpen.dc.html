@@ -39,7 +39,7 @@ textarea{font:inherit;color:inherit}
 <div class="th {{themeClass}}" style="width:951px;height:669px;position:relative;overflow:hidden;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
 
 <section aria-label="对话" style="position:relative;min-width:0">
-<div style="position:absolute;inset:0;padding:110px 20px 92px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px">
+<div style="position:absolute;inset:0;padding:110px 32px 92px 20px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px">
 <div style="align-self:flex-end;max-width:88%;background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:10px 14px;font-size:16px;line-height:1.5">PKCE 改造后跑一下认证模块的竞态测试。</div>
 <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:#1aae39;stroke-width:2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>已允许一次 · 在 Mac 上执行</div>
 <div style="background:var(--surface);border:1px solid var(--hair);border-radius:14px;overflow:hidden">
@@ -49,12 +49,11 @@ textarea{font:inherit;color:inherit}
 <p style="margin:0;font-size:16px;line-height:1.5">前两项已通过，正在跑 code 过期的用例。右侧可以边跑边审改动。</p>
 </div>
 <div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:130px;pointer-events:none;background:linear-gradient(var(--canvas) 45%,color-mix(in srgb,var(--canvas) 80%,transparent) 70%,transparent)"></div>
-<header style="position:absolute;top:20px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
-<button aria-label="返回会话列表" class="glass icb"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="stroke-width:2.2"><path d="m15 6-6 6 6 6"></path></svg></button>
+<header style="position:absolute;top:20px;left:20px;right:28px;height:48px;display:flex;align-items:center;gap:10px">
 <div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:17px;line-height:22px;font-weight:600">feat/oauth-pkce</span><span class="eyebrow" style="color:var(--muted)">api-server · Claude Code</span></div>
 </header>
 <div style="position:absolute;top:74px;left:20px;right:20px;display:flex;gap:6px;overflow:hidden"><span class="chip">claude-direct</span><span class="chip">订阅登录</span><span class="chip">权限：询问</span></div>
-<div style="position:absolute;left:16px;right:16px;bottom:16px">
+<div style="position:absolute;left:16px;right:32px;bottom:16px">
 <div class="glass" style="border-radius:24px;padding:4px 4px 4px 14px;display:flex;align-items:center;gap:4px">
 <label for="duo-half-composer" class="sr">给 Agent 的下一条指令</label>
 <textarea id="duo-half-composer" rows="1" placeholder="运行中，新消息会排队…" style="flex:1;resize:none;border:0;background:transparent;font-size:16px;line-height:1.5;padding:10px 0;min-height:44px"></textarea>
@@ -65,12 +64,12 @@ textarea{font:inherit;color:inherit}
 
 <aside aria-label="变更" style="position:relative;min-width:0;background:var(--surface);border-left:1px solid var(--hair)">
 <div aria-label="竖条：工具栏按钮（系统给出的 trailing 边）" style="position:absolute;top:120px;right:14px;bottom:24px;width:60px;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:5">
-<div class="glass" style="width:60px;border-radius:9999px;padding:4px;display:flex;flex-direction:column;gap:2px;align-items:center">
+<button aria-label="返回会话列表" class="glass" style="width:52px;height:52px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="stroke-width:2.2"><path d="m15 6-6 6 6 6"></path></svg></button>
+<button aria-label="创建 PR" class="glass-tint" style="width:60px;height:72px;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex-shrink:0"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"></path></svg><span style="font-size:11px;font-weight:600">PR</span></button>
+<div class="glass" style="width:60px;border-radius:9999px;padding:4px;display:flex;flex-direction:column;gap:2px;align-items:center;flex-shrink:0">
 <button aria-label="切换统一 / 并排视图" class="icb" style="width:50px;height:50px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"></rect><path d="M12 3.5v17"></path></svg></button>
 <button aria-label="在 Mac 上用 Cursor 打开" class="icb" style="width:50px;height:50px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"></path></svg></button>
 </div>
-<span style="flex:1"></span>
-<button aria-label="创建 PR" class="glass-tint" style="width:60px;height:72px;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"></path></svg><span style="font-size:11px;font-weight:600">PR</span></button>
 </div>
 <div style="position:absolute;top:0;left:0;bottom:0;right:88px;padding:76px 0 24px;display:flex;flex-direction:column">
 <div style="padding:0 14px 8px;display:flex;flex-direction:column;gap:2px">
