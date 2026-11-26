@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd 设计规范</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f6f5f4}
+*{box-sizing:border-box}
+a{color:#0075de}a:hover{color:#005bab}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
+.glass{background:rgba(255,255,255,0.58);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,0.72);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),inset 0 0 0 0.5px rgba(0,0,0,0.05),rgba(0,0,0,0.04) 0px 4px 18px,rgba(0,0,0,0.027) 0px 2.025px 7.847px}
+.glass-dk{background:rgba(44,43,41,0.55);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,0.12);box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),rgba(0,0,0,0.04) 0px 4px 18px;color:rgba(255,255,255,0.92)}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.btn-p{height:36px;padding:0 16px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:500;white-space:nowrap}
+.btn-s{height:36px;padding:0 16px;border-radius:9999px;display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:500;white-space:nowrap;background:#fff;box-shadow:inset 0 0 0 1px #e6e6e6,rgba(0,0,0,0.04) 0px 4px 18px}
+.btn-u{height:32px;padding:4px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px;font-size:16px;font-weight:500;white-space:nowrap;background:#fff;border:1px solid #e6e6e6}
+.chip{height:24px;padding:0 10px;border-radius:9999px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:.125px;background:rgba(0,0,0,0.05);color:#31302e;white-space:nowrap}
+.card{background:#fff;border:1px solid #e6e6e6;border-radius:12px}
+.h2{margin:0;font-size:26px;line-height:1.23;font-weight:700;letter-spacing:-0.625px}
+.lead{margin:0;font-size:16px;line-height:1.5;color:#31302e;max-width:760px}
+.sw{height:56px;border-radius:8px;border:1px solid rgba(0,0,0,0.08)}
+.tbl{display:grid;border:1px solid #e6e6e6;border-radius:12px;overflow:hidden;background:#fff}
+.tbl > div{padding:12px 16px;border-bottom:1px solid #e6e6e6;font-size:14px;line-height:1.43}
+.th-cell{background:#f6f5f4;font-size:12px!important;font-weight:600;letter-spacing:.125px;color:#615d59}
+.need{width:16px;height:16px;border-radius:50%;background:#dd5b00;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+</style>
+</helmet>
+<div style="width:1440px;height:3080px;box-sizing:border-box;padding:80px;background:#f6f5f4;display:flex;flex-direction:column;gap:72px;font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:rgba(0,0,0,0.95);-webkit-font-smoothing:antialiased">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+<span class="chip" style="align-self:flex-start;background:#fff;box-shadow:inset 0 0 0 1px #e6e6e6">Notion Analysis × Liquid Glass</span>
+<h1 style="margin:0;font-size:54px;line-height:1.04;font-weight:700;letter-spacing:-1.875px">Shepherd 设计规范</h1>
+<p class="lead" style="font-size:20px;line-height:1.4;max-width:980px">颜色、字体、间距和圆角全部来自 Notion Analysis 设计系统；材质、层级和控件形态遵循 Apple 的 Liquid Glass（macOS 26、iPadOS 26、iOS 26 起；iPhone Duo 按 iOS 27.2 核对）。在 macOS 15 上，玻璃回退为 NSVisualEffectView 毛玻璃，布局与交互不变。</p>
+</header>
+
+<section aria-labelledby="s-layer" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:start">
+<div aria-hidden="true" style="position:relative;height:440px;border-radius:16px;overflow:hidden;background:#f6f5f4;border:1px solid #e6e6e6">
+<div style="position:absolute;left:-40px;top:200px;width:220px;height:220px;border-radius:50%;background:#62aef0"></div>
+<svg viewBox="0 0 100 100" width="120" height="120" style="position:absolute;left:30px;top:20px"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#dd5b00"></path></svg>
+<div style="position:absolute;left:120px;top:330px;width:160px;height:160px;border-radius:32px;background:#d6b6f6;transform:rotate(14deg)"></div>
+<div class="glass" style="position:absolute;left:14px;top:14px;bottom:14px;width:190px;border-radius:18px;padding:52px 10px 10px;display:flex;flex-direction:column;gap:6px">
+<div style="height:40px;border-radius:10px;background:rgba(0,117,222,0.10)"></div>
+<div style="height:40px;border-radius:10px;background:rgba(221,91,0,0.08)"></div>
+<div style="height:40px;border-radius:10px"></div>
+</div>
+<div style="position:absolute;left:218px;top:0;right:0;bottom:0;background:#f6f5f4;padding:72px 28px 80px;display:flex;flex-direction:column;gap:12px">
+<div class="card" style="height:56px;align-self:flex-end;width:70%"></div>
+<div class="card" style="height:46px"></div>
+<div class="card" style="height:120px;border:1.5px solid #dd5b00;border-radius:16px"></div>
+</div>
+<div style="position:absolute;left:218px;top:0;right:0;height:96px;background:linear-gradient(#f6f5f4 30%,rgba(246,245,244,0))"></div>
+<div style="position:absolute;right:18px;top:16px;display:flex;gap:8px"><span class="glass" style="width:96px;height:36px;border-radius:9999px"></span><span class="glass" style="width:36px;height:36px;border-radius:50%"></span></div>
+<div class="glass" style="position:absolute;left:246px;right:28px;bottom:16px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:flex-end;padding:0 10px"><span class="glass-tint" style="width:32px;height:32px;border-radius:50%"></span></div>
+<span class="eyebrow" style="position:absolute;left:30px;top:20px;color:#31302e">导航层 · 玻璃</span>
+<span class="eyebrow" style="position:absolute;left:246px;top:112px;color:#615d59">内容层 · 纸与卡片</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<h2 id="s-layer" class="h2">两层结构</h2>
+<p class="lead">玻璃只属于浮在内容之上的导航层。消息、卡片和 Diff 留在纸面上，用 surface 白承载可读性。</p>
+<div style="display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:12px"><span class="eyebrow" style="width:20px;color:#615d59">01</span><div><div style="font-size:16px;font-weight:600">导航层用玻璃，内容层用纸</div><div style="font-size:14px;line-height:1.43;color:#615d59">侧栏、工具栏、输入框、弹层、Sheet、Tab 栏是玻璃；对话、工具卡片、Diff 永远是 surface。</div></div></div>
+<div style="display:flex;gap:12px"><span class="eyebrow" style="width:20px;color:#615d59">02</span><div><div style="font-size:16px;font-weight:600">玻璃不叠玻璃</div><div style="font-size:14px;line-height:1.43;color:#615d59">玻璃里的分段控件、按钮用 overlay-subtle 填充；表单字段是 surface 白，不再套一层玻璃。</div></div></div>
+<div style="display:flex;gap:12px"><span class="eyebrow" style="width:20px;color:#615d59">03</span><div><div style="font-size:16px;font-weight:600">只有一种着色</div><div style="font-size:14px;line-height:1.43;color:#615d59">primary 蓝是玻璃上唯一的 tint，只给当前主操作：允许一次、发送、创建 PR、创建并开始。状态色从不给玻璃着色。</div></div></div>
+<div style="display:flex;gap:12px"><span class="eyebrow" style="width:20px;color:#615d59">04</span><div><div style="font-size:16px;font-weight:600">滚动边缘代替分隔线</div><div style="font-size:14px;line-height:1.43;color:#615d59">内容滚到工具栏和输入框下方时渐隐，不画 hairline；会话头部的标签浮在渐隐区里。</div></div></div>
+<div style="display:flex;gap:12px"><span class="eyebrow" style="width:20px;color:#615d59">05</span><div><div style="font-size:16px;font-weight:600">同心圆角</div><div style="font-size:14px;line-height:1.43;color:#615d59">Mac 窗口 26 → 内缩 8 的侧栏 18 → 行 10；iPhone 屏幕 55 → 内缩 8 的 Sheet 47；Duo 外屏铰链侧 8、外侧 59。</div></div></div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s-color" style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px"><h2 id="s-color" class="h2">颜色与深色外观</h2><p class="lead">浅色值全部是设计系统的原值。设计系统没有深色主题，深色一列是按同一套暖灰推导的提议值，确认后应回写到设计系统的 tokens.json。</p></div>
+<div class="tbl" style="grid-template-columns:200px 150px 150px minmax(0,1fr)">
+<div class="th-cell">Token</div><div class="th-cell">浅色（设计系统）</div><div class="th-cell">深色（提议）</div><div class="th-cell">在 Shepherd 里的用途</div>
+<div class="mono" style="font-size:13px">canvas-soft</div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#f6f5f4"></span><span class="mono" style="font-size:12px">#f6f5f4</span></div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#191817"></span><span class="mono" style="font-size:12px">#191817</span></div><div>对话区、Diff 代码块底、桌面纸面</div>
+<div class="mono" style="font-size:13px">surface</div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#ffffff"></span><span class="mono" style="font-size:12px">#ffffff</span></div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#252422"></span><span class="mono" style="font-size:12px">#252422</span></div><div>消息、工具卡片、审批卡、Diff Inspector、表单字段</div>
+<div class="mono" style="font-size:13px">ink / ink-secondary</div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#000000"></span><span class="mono" style="font-size:12px">95% · #31302e</span></div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#ebebeb"></span><span class="mono" style="font-size:12px">92% 白 · #dcd8d3</span></div><div>正文与标题；次级正文</div>
+<div class="mono" style="font-size:13px">ink-muted / ink-faint</div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#615d59"></span><span class="mono" style="font-size:12px">#615d59 · #a39e98</span></div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#a39e98"></span><span class="mono" style="font-size:12px">#a39e98 · #7d7873</span></div><div>副标题、时间、说明文字；faint 只用于行号等元数据</div>
+<div class="mono" style="font-size:13px">hairline / input-border</div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#e6e6e6"></span><span class="mono" style="font-size:12px">#e6e6e6 · #dddddd</span></div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#3a3836"></span><span class="mono" style="font-size:12px">#3a3836 · #4a4744</span></div><div>卡片边、字段边；控件边界另用 ink-muted 保证 3:1</div>
+<div class="mono" style="font-size:13px">primary</div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#0075de"></span><span class="mono" style="font-size:12px">#0075de</span></div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#0075de"></span><span class="mono" style="font-size:12px">#0075de（填充）· #62aef0（文字）</span></div><div>主操作填充、选中行、焦点环、链接。深色下文字与链接改用浅蓝以过 4.5:1</div>
+<div class="mono" style="font-size:13px">secondary</div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#213183"></span><span class="mono" style="font-size:12px">#213183</span></div><div style="display:flex;gap:8px;align-items:center"><span class="sw" style="width:28px;height:28px;background:#213183"></span><span class="mono" style="font-size:12px">#213183</span></div><div>唯一的「夜色」：App 图标、锁屏与菜单栏桌面示意</div>
+<div class="mono" style="font-size:13px;border-bottom:0">accent-orange / -deep</div><div style="display:flex;gap:8px;align-items:center;border-bottom:0"><span class="sw" style="width:28px;height:28px;background:#dd5b00"></span><span class="mono" style="font-size:12px">#dd5b00 · #793400</span></div><div style="display:flex;gap:8px;align-items:center;border-bottom:0"><span class="sw" style="width:28px;height:28px;background:#f2a464"></span><span class="mono" style="font-size:12px">#dd5b00 · #f2a464</span></div><div style="border-bottom:0">「等你处理」的点、边框与竖条；文字一律用 deep 色或深色下的浅橙</div>
+</div>
+</section>
+
+<section aria-labelledby="s-state" style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px"><h2 id="s-state" class="h2">五种状态</h2><p class="lead">设计系统没有语义色阶，状态借用贴纸色做「分类点」。每种状态同时有形状、颜色和文字，任何一项都不单独承担含义。</p></div>
+<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px">
+<div class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px"><span class="dot" style="background:#1aae39;box-shadow:0 0 0 5px rgba(26,174,57,0.18)"></span><span style="font-size:16px;font-weight:600">运行中</span><span style="font-size:14px;line-height:1.43;color:#615d59">accent-green 呼吸点。副标题显示计时或当前动作。降低动态效果时停止呼吸。</span></div>
+<div class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px;border:1.5px solid #dd5b00"><span class="need" aria-hidden="true">!</span><span style="font-size:16px;font-weight:600">等你处理</span><span style="font-size:14px;line-height:1.43;color:#615d59">accent-orange 实心圆 + 竖条 + 淡橙底。覆盖审批、作答、填表三类，各自保留原语义，永不折叠。</span></div>
+<div class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px"><span class="dot" style="background:#0075de"></span><span style="font-size:16px;font-weight:600">已完成 · 未读</span><span style="font-size:14px;line-height:1.43;color:#615d59">primary 圆点；查看后变成 accent-green 对勾。</span></div>
+<div class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px"><span aria-hidden="true" style="width:16px;height:16px;border-radius:5px;background:#ff64c8;color:#391c57;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">×</span><span style="font-size:16px;font-weight:600">出错</span><span style="font-size:14px;line-height:1.43;color:#615d59">accent-pink 圆角方块 + 深紫叉。设计系统没有红色；如需系统红，应先在设计系统里加 danger。</span></div>
+<div class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px"><span class="dot" style="border:1.5px solid #a39e98"></span><span style="font-size:16px;font-weight:600">空闲</span><span style="font-size:14px;line-height:1.43;color:#615d59">空心圆。含义由文字「空闲」承担，ink-faint 只做描边。</span></div>
+</div>
+</section>
+
+<section aria-labelledby="s-type" style="display:grid;grid-template-columns:360px minmax(0,1fr);gap:48px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:8px"><h2 id="s-type" class="h2">字体</h2><p class="lead">只用设计系统的 Inter 字号阶梯，负字距照用；代码与 Diff 用系统等宽字体（SF Mono）。系统绘制的控件文字仍由系统渲染。</p></div>
+<div class="tbl" style="grid-template-columns:180px repeat(4,minmax(0,1fr))">
+<div class="th-cell">角色</div><div class="th-cell">Mac</div><div class="th-cell">iPad</div><div class="th-cell">iPhone / Duo 外屏</div><div class="th-cell">Token</div>
+<div style="font-weight:600">大标题</div><div>—</div><div>26 / 700</div><div>40 / 700</div><div class="mono" style="font-size:12px">heading-2 · heading-1</div>
+<div style="font-weight:600">弹窗与卡片标题</div><div>20 / 600</div><div>20 / 600</div><div>20 / 600</div><div class="mono" style="font-size:12px">title</div>
+<div style="font-weight:600">对话正文</div><div>15 / 400</div><div>16 / 400</div><div>16 / 400</div><div class="mono" style="font-size:12px">body-sm · body-md</div>
+<div style="font-weight:600">列表行标题</div><div>15 / 500</div><div>16 / 500</div><div>16 / 500</div><div class="mono" style="font-size:12px">body-sm · body-md</div>
+<div style="font-weight:600">副标题与说明</div><div>14 / 400</div><div>14 / 400</div><div>14 / 400</div><div class="mono" style="font-size:12px">caption</div>
+<div style="font-weight:600">标签、徽章、会话头部</div><div>12 / 600</div><div>12 / 600</div><div>12 / 600</div><div class="mono" style="font-size:12px">eyebrow</div>
+<div style="font-weight:600;border-bottom:0">按钮</div><div style="border-bottom:0">16 / 500 · 高 32–36</div><div style="border-bottom:0">16 / 500 · 高 44</div><div style="border-bottom:0">16 / 500 · 高 44–50</div><div class="mono" style="font-size:12px;border-bottom:0">button</div>
+</div>
+</section>
+
+<section aria-labelledby="s-glass" style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px"><h2 id="s-glass" class="h2">玻璃材质与无障碍</h2><p class="lead">同一块玻璃在五种条件下的样子。「降低透明度」时退回 surface 实色；「增强对比度」时加 ink-muted 描边。主窗口原型的 Tweaks 里可以直接切换。</p></div>
+<div aria-hidden="true" style="position:relative;height:250px;border-radius:16px;overflow:hidden;background:#f6f5f4;border:1px solid #e6e6e6">
+<div style="position:absolute;left:60px;top:40px;width:200px;height:200px;border-radius:50%;background:#62aef0"></div>
+<svg viewBox="0 0 100 100" width="170" height="170" style="position:absolute;left:420px;top:50px;transform:rotate(12deg)"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#dd5b00"></path></svg>
+<div style="position:absolute;left:700px;top:20px;width:180px;height:180px;border-radius:36px;background:#d6b6f6;transform:rotate(-10deg)"></div>
+<div style="position:absolute;left:1000px;top:90px;width:220px;height:120px;border-radius:9999px;background:#1aae39"></div>
+<div style="position:absolute;inset:40px 32px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:20px">
+<div class="glass" style="border-radius:18px;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px"><span style="font-size:15px;font-weight:600">常规玻璃</span><span style="font-size:12px;color:#31302e">58% 白 · 模糊 24 · 饱和 180%</span></div>
+<div class="glass-dk" style="border-radius:18px;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px"><span style="font-size:15px;font-weight:600">深色玻璃</span><span style="font-size:12px;opacity:.8">55% 暖黑 · 12% 白描边</span></div>
+<div class="glass-tint" style="border-radius:18px;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px"><span style="font-size:15px;font-weight:600">着色玻璃</span><span style="font-size:12px;opacity:.9">primary 92% · 仅主操作</span></div>
+<div style="border-radius:18px;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;background:#ffffff;border:1px solid #e6e6e6"><span style="font-size:15px;font-weight:600">降低透明度</span><span style="font-size:12px;color:#31302e">surface 实色，无模糊</span></div>
+<div style="border-radius:18px;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;background:rgba(255,255,255,0.92);border:1px solid #615d59"><span style="font-size:15px;font-weight:600">增强对比度</span><span style="font-size:12px;color:#31302e">92% 白 + ink-muted 描边</span></div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s-comp" style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px"><h2 id="s-comp" class="h2">核心组件</h2><p class="lead">按钮沿用设计系统的「药丸 CTA 与 8px 工具按钮」对比；Liquid Glass 控件是药丸形。表单字段永远不用药丸圆角。</p></div>
+<div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:12px">
+<span class="eyebrow" style="color:#615d59">内联审批条</span>
+<div style="background:#fff;border:1.5px solid #dd5b00;border-radius:16px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:rgba(221,91,0,0.08)"><span class="need" aria-hidden="true">!</span><span class="eyebrow" style="color:#793400">等你处理</span><span class="chip" style="height:22px;background:#fff;color:#793400">Shell 命令</span></div>
+<div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px">
+<div class="mono" style="font-size:13px;background:#f6f5f4;border-radius:8px;padding:8px 12px">$ go test ./internal/auth/... -v -race</div>
+<div style="font-size:14px;line-height:1.43;color:#615d59">如实标注范围：只有 Agent 发来请求的操作会出现在这里。</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><span class="glass-tint btn-p">允许一次</span><span class="btn-s">本会话允许同类操作</span><span class="btn-u">拒绝…</span></div>
+</div>
+</div>
+<span class="eyebrow" style="color:#615d59;margin-top:8px">问题作答卡（不压成允许 / 拒绝）</span>
+<div style="background:#fff;border:1.5px solid #dd5b00;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+<span style="font-size:16px;font-weight:600">选哪种限流算法？</span>
+<span style="display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:8px;border:1px solid #0075de;background:rgba(0,117,222,0.05);font-size:15px"><span style="width:16px;height:16px;border-radius:50%;border:5px solid #0075de"></span>令牌桶</span>
+<span style="display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:8px;border:1px solid #e6e6e6;font-size:15px"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #615d59"></span>滑动窗口计数</span>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<span class="eyebrow" style="color:#615d59">工具卡片与变更摘要</span>
+<div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:#615d59"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.5 4.5"></path></svg><span style="font-size:15px;font-weight:500;flex:1">已探索 4 个文件</span><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="color:#615d59"><path d="m9 6 6 6-6 6"></path></svg></div>
+<div class="card" style="padding:10px 10px 10px 14px;display:flex;align-items:center;gap:10px"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:#615d59"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path></svg><span class="mono" style="font-size:13px;flex:1">auth/oauth.go</span><span class="mono" style="font-size:12px">+86 −19</span><span class="btn-u">查看 Diff</span></div>
+<div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><span class="eyebrow" style="color:#615d59">本轮变更</span><span style="font-size:22px;line-height:1.27;font-weight:700;letter-spacing:-0.25px">3 个文件 · +142 −28</span><span style="font-size:14px;color:#615d59">用时 48 秒 · 约 18.4k tokens</span></div>
+<span class="eyebrow" style="color:#615d59;margin-top:8px">会话头部</span>
+<div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">Claude Code · claude-direct</span><span class="chip">订阅登录 · 订阅额度</span><span class="chip" style="background:rgba(0,117,222,0.1);color:#005bab">权限：询问</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<span class="eyebrow" style="color:#615d59">侧栏行（右键菜单为玻璃）</span>
+<div aria-hidden="true" style="position:relative;height:360px;border-radius:16px;overflow:hidden;background:#f6f5f4;border:1px solid #e6e6e6">
+<div style="position:absolute;left:-30px;top:120px;width:200px;height:200px;border-radius:50%;background:#62aef0"></div>
+<div class="glass" style="position:absolute;left:12px;top:12px;bottom:12px;width:220px;border-radius:18px;padding:12px 8px;display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(0,117,222,0.10)"><span class="dot" style="background:#0075de"></span><span style="font-size:15px;font-weight:500">chore/sql-index</span></div>
+<div style="display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(221,91,0,0.08)"><span class="need">!</span><span style="font-size:15px;font-weight:500">fix/rate-limit</span></div>
+<div style="display:flex;gap:8px;align-items:center;padding:8px 10px"><span class="dot" style="background:#1aae39"></span><span style="font-size:15px;font-weight:500">perf/orders</span></div>
+</div>
+<div class="glass" style="position:absolute;left:120px;top:48px;width:230px;border-radius:14px;padding:6px;display:flex;flex-direction:column;font-size:14px;background:rgba(255,255,255,0.8);box-shadow:rgba(0,0,0,0.05) 0px 23px 52px,rgba(0,0,0,0.04) 0px 14px 28px">
+<span style="padding:6px 10px;border-radius:6px;background:#0075de;color:#fff">在 Cursor 中打开</span>
+<span style="padding:6px 10px">在 Zed / VS Code 中打开</span>
+<span style="padding:6px 10px">在 Finder 中显示</span>
+<span style="padding:6px 10px">复制 Worktree 路径</span>
+<span style="height:1px;margin:4px 10px;background:rgba(0,0,0,0.08)"></span>
+<span style="padding:6px 10px">同步 Base 分支</span>
+<span style="padding:6px 10px">归档并清理 Worktree…</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="s-plat" style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px"><h2 id="s-plat" class="h2">四端适配</h2><p class="lead">Mac 是唯一的执行端。iPad、iPhone 与 iPhone Duo 是连到 Mac 的 Companion（docs/03 目前把 Mobile Companion 列为 Cut，待拍板）。布局一律由尺寸类决定，不看机型。</p></div>
+<div class="tbl" style="grid-template-columns:150px repeat(4,minmax(0,1fr))">
+<div class="th-cell"></div><div class="th-cell">Mac</div><div class="th-cell">iPad</div><div class="th-cell">iPhone</div><div class="th-cell">iPhone Duo</div>
+<div style="font-weight:600">导航结构</div><div>浮动玻璃侧栏 + 对话 + 按需 Diff Inspector（⌘⇧D）</div><div>三栏 NavigationSplitView；打开 Diff 时侧栏自动收起</div><div>Tab 栏（等你处理 / 全部会话 / 设置 + 搜索）+ 推入会话</div><div>系统竖条在右侧：标签栏、工具栏按钮竖排进这一列，内容在左。内屏宽度为 regular 时用侧栏 + 对话；变窄回到单栏</div>
+<div style="font-weight:600">玻璃表面</div><div>侧栏、工具栏胶囊组、输入框、弹层、Sheet、菜单栏 Popover</div><div>侧栏、工具栏、输入框、Popover</div><div>Tab 栏、返回与工具按钮、输入框、Sheet、锁屏通知</div><div>右侧竖条里的按钮组与搜索；背景铺满竖条区</div>
+<div style="font-weight:600">审批</div><div>内联审批条，⌘↩ / ⌘⌫；菜单栏不提供盲批</div><div>内联审批条，44pt 触控</div><div>会话内审批卡；拒绝走底部 Sheet；锁屏只能「打开查看」</div><div>合上 / 展开时审批卡与草稿保持</div>
+<div style="font-weight:600">权限档位</div><div>五档全提供；「完全放行」逐会话确认</div><div>只显示，不提供「完全放行」</div><div>只显示，不提供「完全放行」</div><div>同 iPhone</div>
+<div style="font-weight:600;border-bottom:0">安全区</div><div style="border-bottom:0">窗口与工具栏由系统管理</div><div style="border-bottom:0">贴 safeAreaLayoutGuide</div><div style="border-bottom:0">贴 safeAreaLayoutGuide，输入框跟随键盘</div><div style="border-bottom:0">左右逐边读取；竖条边由 verticalBarEdge 给出，不推断</div>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3080}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

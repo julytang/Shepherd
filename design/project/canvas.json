@@ -1,0 +1,66 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-11-26T14:00:00Z"},
+  "title": "Shepherd 设计稿",
+  "launch": {"view": "canvas", "page": "mac"},
+  "pages": [
+    {"id": "mac", "name": "Mac"},
+    {"id": "ipad", "name": "iPad"},
+    {"id": "iphone", "name": "iPhone"},
+    {"id": "duo", "name": "iPhone Duo"},
+    {"id": "spec", "name": "设计规范"}
+  ],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 900, "title": "Mac · 主窗口（可交互原型）", "page": "mac", "is_interactive": true},
+    "MacTrustGate.dc.html": {"x": 1520, "y": 0, "w": 1440, "h": 900, "title": "Mac · 仓库与脚本信任门", "page": "mac"},
+    "MacCreatePR.dc.html": {"x": 3040, "y": 0, "w": 1440, "h": 900, "title": "Mac · 提交并创建 PR", "page": "mac"},
+    "MacArchive.dc.html": {"x": 0, "y": 1020, "w": 1440, "h": 900, "title": "Mac · 归档并清理 Worktree", "page": "mac"},
+    "MacMenuBar.dc.html": {"x": 1520, "y": 1020, "w": 1440, "h": 900, "title": "Mac · 菜单栏与系统通知", "page": "mac"},
+    "MainDark.dc.html": {"x": 3040, "y": 1020, "w": 1440, "h": 900, "title": "Mac · 主窗口（深色，可交互）", "page": "mac", "is_interactive": true},
+    "iPadWorkspace.dc.html": {"x": 0, "y": 0, "w": 1210, "h": 834, "title": "iPad · 三栏工作区（可交互原型）", "page": "ipad", "is_interactive": true, "radius": 18},
+    "iPadReview.dc.html": {"x": 1290, "y": 0, "w": 834, "h": 1210, "title": "iPad · 竖屏审查与创建 PR（深色）", "page": "ipad", "radius": 18},
+    "iPadWorkspaceDark.dc.html": {"x": 0, "y": 954, "w": 1210, "h": 834, "title": "iPad · 三栏工作区（深色，可交互）", "page": "ipad", "is_interactive": true, "radius": 18},
+    "iPhoneFlow.dc.html": {"x": 0, "y": 0, "w": 402, "h": 874, "title": "iPhone · 等你处理 → 审批 → Diff（可交互原型）", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhoneNewTask.dc.html": {"x": 482, "y": 0, "w": 402, "h": 874, "title": "iPhone · 新建任务（深色）", "page": "iphone", "radius": 55},
+    "iPhoneLockScreen.dc.html": {"x": 964, "y": 0, "w": 402, "h": 874, "title": "iPhone · 锁屏通知与实时活动", "page": "iphone", "radius": 55},
+    "iPhoneFlowDark.dc.html": {"x": 1446, "y": 0, "w": 402, "h": 874, "title": "iPhone · 等你处理（深色，可交互）", "page": "iphone", "is_interactive": true, "radius": 55},
+    "DuoOuter.dc.html": {"x": 0, "y": 0, "w": 466, "h": 678, "title": "iPhone Duo · 外屏（合上）", "page": "duo", "guides": [{"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
+    "DuoInner.dc.html": {"x": 546, "y": 0, "w": 951, "h": 669, "title": "iPhone Duo · 内屏（展开，深色）", "page": "duo", "radius": 55, "guides": [{"kind": "columns", "count": 1, "size": 2, "align": "center", "color": "rgba(221,91,0,0.5)"}, {"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
+    "DuoHalfOpen.dc.html": {"x": 1577, "y": 0, "w": 951, "h": 669, "title": "iPhone Duo · 半开（书本姿态）", "page": "duo", "radius": 55, "guides": [{"kind": "columns", "count": 1, "size": 2, "align": "center", "color": "rgba(221,91,0,0.5)"}, {"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
+    "DuoSplit.dc.html": {"x": 546, "y": 789, "w": 951, "h": 669, "title": "iPhone Duo · 内屏分屏（变窄后回到单栏）", "page": "duo", "radius": 55, "guides": [{"kind": "columns", "count": 1, "size": 2, "align": "center", "color": "rgba(221,91,0,0.5)"}]},
+    "Foundations.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 3080, "title": "设计规范 · Liquid Glass × Notion Analysis", "page": "spec"}
+  },
+  "order": [
+    "Main.dc.html",
+    "MacTrustGate.dc.html",
+    "MacCreatePR.dc.html",
+    "MacArchive.dc.html",
+    "MacMenuBar.dc.html",
+    "MainDark.dc.html",
+    "iPadWorkspace.dc.html",
+    "iPadReview.dc.html",
+    "iPadWorkspaceDark.dc.html",
+    "iPhoneFlow.dc.html",
+    "iPhoneNewTask.dc.html",
+    "iPhoneLockScreen.dc.html",
+    "iPhoneFlowDark.dc.html",
+    "DuoOuter.dc.html",
+    "DuoInner.dc.html",
+    "DuoHalfOpen.dc.html",
+    "DuoSplit.dc.html",
+    "Foundations.dc.html"
+  ],
+  "notes": {
+    "macTitle": {"x": 0, "y": -300, "text": "Mac · macOS 26 Liquid Glass", "kind": "title1", "maxW": 4480, "page": "mac"},
+    "macNote": {"x": 4560, "y": 0, "w": 420, "text": "Liquid Glass 只在 macOS 26 及以上生效。文档的最低版本是 macOS 15：在 15 上侧栏、工具栏和弹层回退为 NSVisualEffectView 毛玻璃，布局、层级和交互不变。\n\n主窗口是可交互原型：点侧栏切换会话，试试「允许一次 / 拒绝…」、问题作答卡、权限档位菜单、Diff 按钮和「新建 Worktree」。右侧 Tweaks 可切换「外观：浅色 / 深色」和「降低透明度 / 增强对比度」。", "page": "mac"},
+    "ipadTitle": {"x": 0, "y": -300, "text": "iPad · iPadOS 26 Companion", "kind": "title1", "maxW": 2124, "page": "ipad"},
+    "ipadNote": {"x": 2204, "y": 0, "w": 380, "text": "待拍板：docs/03 把 Mobile Companion 与 E2E Relay 列为 Cut。这组稿按 Companion 设计：Agent、Worktree 与 git 操作都留在 Mac 本机执行，iPad 只看状态、作答、审 Diff、发起 PR，执行结果回到 Mac。连接方式（同网段 / iCloud / 中继）未定。", "fill": "orange", "page": "ipad"},
+    "iphoneTitle": {"x": 0, "y": -300, "text": "iPhone · iOS 26 Companion", "kind": "title1", "maxW": 1848, "page": "iphone"},
+    "iphoneNote": {"x": 1928, "y": 0, "w": 380, "text": "待拍板：同 iPad，Mobile Companion 在 docs/03 中是 Cut。\n\n安全取舍沿用菜单栏的原则：锁屏通知与实时活动不提供「盲批」，只能「打开查看」；审批必须在会话里看到完整命令和上下文后进行，「完全放行」不在移动端提供。", "fill": "orange", "page": "iphone"},
+    "duoTitle": {"x": 0, "y": -300, "text": "iPhone Duo · iOS 27.2 折叠屏适配", "kind": "title1", "maxW": 2528, "page": "duo"},
+    "duoNote": {"x": 0, "y": 789, "w": 440, "text": "依据 Apple app-resizability 指引，并在 iPhone Duo 模拟器（iOS 27.2）上核对：\n\n1. 系统竖条在右侧。合上时的外屏和展开时的内屏，系统都把时间、Wi‑Fi 和工具栏、标签栏按钮竖排在右侧一列：上方留给摄像头和状态，底部放搜索等按钮，内容在左侧。Shepherd 的「新任务、标签、搜索」和内屏的「Cursor、Diff、创建 PR」都放进这一列。\n\n2. 竖条以水平安全区下发（verticalBarEdge，SwiftUI 为 toolbarVerticalEdge，iOS 27.1 起提供）。代码读取它，不写死右边；分屏时竖条只属于靠边的那一栏。橙色色带是示意宽度。\n\n3. 布局只看尺寸类，不看机型、idiom 或方向；分屏变窄后回到单栏。\n\n4. 合上与展开是 scene 尺寸变化，不重启：会话、滚动位置、草稿、打开的审批卡都保持。\n\n5. 输入框跟随 keyboardLayoutGuide。\n\n6. 工程门槛：必须声明启动屏（iOS 27 否则上传被 ITMS-90870 拒绝）；UIRequiresFullScreen 在 iOS 27 被忽略。\n\n内屏中线的橙线是折痕示意，不是系统安全区。", "fill": "blue", "page": "duo"}
+  },
+  "designSystems": [
+    {"title": "Notion Analysis", "namespace": "notionanalysis", "artifact": "https://claude.ai/code/artifact/3cb0cd3a-7c91-4d34-ae95-f318d715d86c", "version": "1795699149-8d64", "copiedAt": "2026-11-26T14:00:00Z"}
+  ]
+}

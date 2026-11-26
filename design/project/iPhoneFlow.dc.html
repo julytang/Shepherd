@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · iPhone 等你处理流程</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--input:#dddddd;--ov:rgba(0,0,0,0.05);--link:#0075de;--needInk:#793400;--needBg:rgba(221,91,0,0.08);--selBg:rgba(0,117,222,0.10);--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);--add:rgba(26,174,57,0.12);--del:rgba(255,100,200,0.14);--dim:rgba(0,0,0,0.18);color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--input:#4a4744;--ov:rgba(255,255,255,0.08);--link:#62aef0;--needInk:#f2a464;--needBg:rgba(221,91,0,0.16);--selBg:rgba(0,117,222,0.26);--glass:rgba(44,43,41,0.58);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);--add:rgba(26,174,57,0.2);--del:rgba(255,100,200,0.2);--dim:rgba(0,0,0,0.45);color-scheme:dark}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent}
+button:disabled{opacity:.4;cursor:default}
+input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #0075de;outline-offset:2px}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glassEdge);box-shadow:inset 0 1px 0 var(--glassHi),rgba(0,0,0,0.04) 0px 4px 18px,rgba(0,0,0,0.027) 0px 2.025px 7.847px,rgba(0,0,0,0.02) 0px 0.8px 2.925px}
+.lift{box-shadow:rgba(0,0,0,0.02) 0px 3px 7px,rgba(0,0,0,0.04) 0px 14px 28px,rgba(0,0,0,0.08) 0px 23px 52px,inset 0 1px 0 var(--glassHi)}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.glass-tint:active{background:#005bab}
+.press{transition:transform .12s ease}
+.press:active{transform:scale(0.9)}
+.icb{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-u{height:44px;padding:4px 16px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:16px;line-height:1.5;font-weight:500;white-space:nowrap;background:var(--surface);border:1px solid var(--hair)}
+.btn-s{height:44px;padding:0 18px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:500;white-space:nowrap;background:var(--surface);box-shadow:inset 0 0 0 1px var(--hair),rgba(0,0,0,0.04) 0px 4px 18px}
+.chip{height:28px;padding:0 12px;border-radius:9999px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:.125px;background:var(--ov);color:var(--ink2);white-space:nowrap;flex-shrink:0}
+.tile{width:22px;height:22px;border-radius:6px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.need{width:18px;height:18px;border-radius:50%;background:#dd5b00;color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.ln{display:grid;grid-template-columns:30px 14px minmax(0,1fr);font-size:12px;line-height:20px}
+.ln span:first-child{color:var(--faint);text-align:right;padding-right:6px}
+.ln span:nth-child(2){text-align:center}
+.ln span:last-child{white-space:pre;overflow:hidden;text-overflow:ellipsis;padding-right:12px}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(26,174,57,0.5)}70%{box-shadow:0 0 0 6px rgba(26,174,57,0)}100%{box-shadow:0 0 0 0 rgba(26,174,57,0)}}
+.pulse{animation:pulse 1.8s ease-out infinite}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}.press:active{transform:none}}
+@media (prefers-reduced-transparency:reduce){.glass{background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}}
+</style>
+</helmet>
+<div class="th {{themeClass}}" style="width:402px;height:874px;position:relative;overflow:hidden;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased">
+
+<sc-if value="{{onInbox}}" hint-placeholder-val="{{true}}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding:62px 16px 130px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:8px;padding:4px 4px 0">
+<h1 style="margin:0;flex:1;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-1px">等你处理</h1>
+<button aria-label="新任务" class="glass icb press"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:0 4px 8px;font-size:14px;color:var(--muted)">
+<svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2 19h20"></path></svg>
+<span style="flex:1">July 的 MacBook Pro</span><span class="dot" style="width:8px;height:8px;background:#1aae39"></span><span>已连接</span>
+</div>
+
+<sc-if value="{{showOauthCard}}" hint-placeholder-val="{{true}}">
+<button onClick="{{openOauth}}" style="width:100%;background:var(--surface);border:1.5px solid #dd5b00;border-radius:20px;padding:14px 14px 14px 16px;display:flex;flex-direction:column;gap:10px">
+<span style="display:flex;align-items:center;gap:10px;width:100%">
+<span class="need" aria-hidden="true">!</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">feat/oauth-pkce</span><span style="font-size:14px;color:var(--needInk)">等你批准 · Shell 命令 · 21:34</span></span>
+<span class="tile" style="background:#dd5b00;color:#fff">C</span>
+<svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="color:var(--muted)"><path d="m9 6 6 6-6 6"></path></svg>
+</span>
+<span class="mono" style="width:100%;font-size:13px;line-height:1.5;background:var(--canvas);border-radius:8px;padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">go test ./internal/auth/... -v -race</span>
+</button>
+</sc-if>
+<sc-if value="{{showRateCard}}" hint-placeholder-val="{{true}}">
+<button onClick="{{openRate}}" style="width:100%;background:var(--surface);border:1.5px solid #dd5b00;border-radius:20px;padding:14px 14px 14px 16px;display:flex;align-items:center;gap:10px">
+<span class="need" aria-hidden="true">?</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">fix/rate-limit</span><span style="font-size:14px;color:var(--needInk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">等你作答 · 选哪种限流算法？</span></span>
+<span class="tile" style="background:#2a9d99;color:#fff">X</span>
+<svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="color:var(--muted)"><path d="m9 6 6 6-6 6"></path></svg>
+</button>
+</sc-if>
+<div style="width:100%;background:var(--surface);border:1px solid var(--hair);border-radius:20px;padding:14px 10px 14px 16px;display:flex;align-items:center;gap:10px">
+<span aria-hidden="true" style="width:18px;height:18px;border-radius:5px;background:#ff64c8;color:#391c57;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">×</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">fix/notify-dedupe</span><span style="font-size:14px;color:var(--muted)">出错 · 429 额度上限，22:10 重置</span></span>
+<button class="btn-u" style="height:40px">重试</button>
+</div>
+<sc-if value="{{allClear}}" hint-placeholder-val="{{false}}">
+<div style="padding:8px 4px;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:8px"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:#1aae39;stroke-width:2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>审批与问题都处理完了</div>
+</sc-if>
+
+<div class="eyebrow" style="padding:12px 4px 0;color:var(--muted)">运行中</div>
+<div style="background:var(--surface);border:1px solid var(--hair);border-radius:20px;overflow:hidden">
+<sc-for list="{{running}}" as="r" hint-placeholder-count="2">
+<div style="min-height:60px;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--hair)">
+<span class="dot pulse" style="background:#1aae39"></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{r.branch}}</span><span style="font-size:14px;color:var(--muted)">{{r.sub}}</span></span>
+<span class="tile" style="background:{{r.bg}};color:{{r.fg}}">{{r.letter}}</span>
+</div>
+</sc-for>
+</div>
+<div class="eyebrow" style="padding:12px 4px 0;color:var(--muted)">最近完成</div>
+<div style="background:var(--surface);border:1px solid var(--hair);border-radius:20px;min-height:60px;display:flex;align-items:center;gap:12px;padding:10px 16px">
+<span class="dot" style="background:#0075de"></span>
+<span style="flex:1;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:500">chore/sql-index</span><span style="font-size:14px;color:var(--muted)">PR #84 · CI 5/5 通过 · 20:58</span></span>
+<span class="tile" style="background:#dd5b00;color:#fff">C</span>
+</div>
+</div>
+
+<div aria-hidden="true" style="position:absolute;bottom:0;left:0;right:0;height:140px;pointer-events:none;background:linear-gradient(transparent,color-mix(in srgb,var(--canvas) 85%,transparent) 55%,var(--canvas))"></div>
+<nav aria-label="标签栏" style="position:absolute;left:16px;right:16px;bottom:30px;display:flex;gap:10px;align-items:center">
+<div class="glass" style="flex:1;height:64px;border-radius:9999px;display:flex;padding:4px">
+<button aria-current="page" style="flex:1;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov);color:var(--link);position:relative">
+<svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 13h5l1.5 3h5L16 13h5"></path><path d="M5.5 5h13l2.5 8v6H3v-6z"></path></svg>
+<span style="font-size:12px;font-weight:600">等你处理</span>
+<span style="position:absolute;top:4px;left:50%;margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9999px;background:#dd5b00;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{needCount}}</span>
+</button>
+<button style="flex:1;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink2)">
+<svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>
+<span style="font-size:12px;font-weight:600">全部会话</span>
+</button>
+<button style="flex:1;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink2)">
+<svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg>
+<span style="font-size:12px;font-weight:600">设置</span>
+</button>
+</div>
+<button aria-label="搜索" class="glass press" style="width:64px;height:64px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.5 4.5"></path></svg></button>
+</nav>
+</sc-if>
+
+<sc-if value="{{onSession}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding:150px 16px 120px">
+<div style="min-height:100%;display:flex;flex-direction:column;gap:14px">
+<div style="margin-top:auto"></div>
+<sc-if value="{{isOauth}}" hint-placeholder-val="{{true}}">
+<div style="display:flex;flex-direction:column;gap:14px">
+<div style="align-self:flex-end;max-width:86%;background:var(--surface);border:1px solid var(--hair);border-radius:18px;padding:10px 14px;font-size:16px;line-height:1.5">把 OAuth 登录流程切到 PKCE，并补齐 callback 异常单测。</div>
+<div style="display:flex;align-items:center;gap:8px"><span class="tile" aria-hidden="true" style="width:20px;height:20px;font-size:11px;background:#dd5b00;color:#fff">C</span><span class="eyebrow" style="color:var(--ink2)">Claude Code</span><span class="eyebrow" style="color:var(--muted)">思考了 6.2 秒</span></div>
+<div style="background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="color:var(--muted)"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.5 4.5"></path></svg><span style="font-size:15px;font-weight:500;flex:1">已探索 4 个文件</span><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:var(--muted)"><path d="m9 6 6 6-6 6"></path></svg></div>
+<button onClick="{{openDiff}}" style="width:100%;background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-height:48px"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="color:var(--muted)"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path></svg><span style="font-size:15px;font-weight:500;flex:1">编辑 2 个文件</span><span class="mono" style="font-size:12px;color:var(--ink2)">+127 −19</span><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:var(--muted)"><path d="m9 6 6 6-6 6"></path></svg></button>
+<p style="margin:0;font-size:16px;line-height:1.5">PKCE 的改动写完了。接下来跑认证模块的竞态测试，确认 callback 的三条异常路径都覆盖到。</p>
+<sc-if value="{{apprOpen}}" hint-placeholder-val="{{true}}">
+<div style="background:var(--surface);border:1.5px solid #dd5b00;border-radius:22px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--needBg)"><span class="need" aria-hidden="true">!</span><span class="eyebrow" style="color:var(--needInk);flex:1">等你处理 · Shell 命令</span><span class="eyebrow" style="color:var(--muted)">21:34</span></div>
+<div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px">
+<div class="mono" style="font-size:13px;line-height:1.5;background:var(--canvas);border-radius:8px;padding:10px 12px;word-break:break-all">$ go test ./internal/auth/... -v -race</div>
+<div style="font-size:14px;line-height:1.43;color:var(--muted)">在 Mac 上执行 · 目的：验证 PKCE 改造后 callback 的异常路径与竞态</div>
+<div style="font-size:14px;line-height:1.43;color:var(--muted)">只有 Claude 发来请求的操作会出现在这里，已放行的操作不经过 Shepherd。</div>
+<button onClick="{{allowOnce}}" class="glass-tint press" style="height:50px;border-radius:9999px;font-size:16px;font-weight:500;display:flex;align-items:center;justify-content:center;margin-top:4px">允许一次</button>
+<div style="display:flex;gap:10px">
+<button onClick="{{allowOnce}}" class="btn-s press" style="flex:1">本会话允许</button>
+<button onClick="{{startDeny}}" class="btn-s press" style="flex:1">拒绝…</button>
+</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{apprAllowed}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:#1aae39;stroke-width:2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>已允许一次 · 在 Mac 上执行</div>
+<div style="background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:12px;display:flex;align-items:center;gap:10px"><span class="dot pulse" style="background:#1aae39"></span><span style="font-size:15px;font-weight:500">运行中</span><span class="mono" style="flex:1;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">go test ./internal/auth/...</span><span style="font-size:14px;color:var(--muted)">6 秒</span></div>
+</div>
+</sc-if>
+<sc-if value="{{apprDenied}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>已拒绝 · {{reasonShown}}</div>
+<p style="margin:0;font-size:16px;line-height:1.5">收到，改为只跑 internal/auth 的单测。</p>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isRate}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:14px">
+<div style="align-self:flex-end;max-width:86%;background:var(--surface);border:1px solid var(--hair);border-radius:18px;padding:10px 14px;font-size:16px;line-height:1.5">给 /api/v1/* 加限流：超限返回 429，并带上 Retry-After。</div>
+<div style="display:flex;align-items:center;gap:8px"><span class="tile" aria-hidden="true" style="width:20px;height:20px;font-size:11px;background:#2a9d99;color:#fff">X</span><span class="eyebrow" style="color:var(--ink2)">Codex</span></div>
+<p style="margin:0;font-size:16px;line-height:1.5">有两种实现方式，取舍不同，需要你来定。</p>
+<sc-if value="{{qOpen}}" hint-placeholder-val="{{true}}">
+<div style="background:var(--surface);border:1.5px solid #dd5b00;border-radius:22px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--needBg)"><span class="need" aria-hidden="true">?</span><span class="eyebrow" style="color:var(--needInk)">等你处理 · 问题</span></div>
+<fieldset style="border:0;margin:0;padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px">
+<legend class="sr">选哪种限流算法？</legend>
+<div aria-hidden="true" style="font-size:20px;line-height:1.4;font-weight:600;letter-spacing:-0.125px">选哪种限流算法？</div>
+<sc-for list="{{qOpts}}" as="o" hint-placeholder-count="2">
+<label style="display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:14px;border:1px solid {{o.border}};background:{{o.bg}};min-height:56px">
+<input type="radio" name="ph-algo" checked="{{o.checked}}" onChange="{{o.pick}}" style="margin:2px 0 0;accent-color:#0075de;width:20px;height:20px">
+<span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:500">{{o.label}}</span><span style="font-size:14px;line-height:1.43;color:var(--muted)">{{o.desc}}</span></span>
+</label>
+</sc-for>
+<button onClick="{{submitQ}}" disabled="{{qNone}}" class="glass-tint press" style="height:50px;border-radius:9999px;font-size:16px;font-weight:500;margin-top:4px">提交答案</button>
+</fieldset>
+</div>
+</sc-if>
+<sc-if value="{{qDone}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:#1aae39;stroke-width:2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>已回答：{{qAnswer}} · Codex 继续运行</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</div>
+
+<div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:170px;pointer-events:none;background:linear-gradient(var(--canvas) 40%,color-mix(in srgb,var(--canvas) 80%,transparent) 70%,transparent)"></div>
+<header style="position:absolute;top:62px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button onClick="{{goInbox}}" aria-label="返回等你处理" class="glass icb press"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="stroke-width:2.2"><path d="m15 6-6 6 6 6"></path></svg></button>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center">
+<span style="font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">{{title}}</span>
+<span class="eyebrow" style="color:var(--muted)">{{subtitle}}</span>
+</div>
+<sc-if value="{{isOauth}}" hint-placeholder-val="{{true}}"><button onClick="{{openDiff}}" aria-label="查看 3 个文件的变更" class="glass press" style="height:44px;padding:0 14px;border-radius:9999px;display:inline-flex;align-items:center;gap:6px;font-size:16px;font-weight:500"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"></rect><path d="M12 3.5v17M7.5 8.5v4M5.5 10.5h4M14.5 10.5h4"></path></svg>3</button></sc-if>
+<sc-if value="{{isRate}}" hint-placeholder-val="{{false}}"><span style="width:44px"></span></sc-if>
+</header>
+<div style="position:absolute;top:116px;left:0;right:0;display:flex;gap:6px;overflow-x:auto;padding:0 16px">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="4"><span class="chip">{{c.t}}</span></sc-for>
+</div>
+
+<div style="position:absolute;left:12px;right:12px;bottom:30px;display:flex;align-items:flex-end;gap:8px">
+<button aria-label="添加文件或图片" class="glass icb press" style="width:48px;height:48px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<div class="glass" style="flex:1;min-height:48px;border-radius:24px;display:flex;align-items:flex-end;padding:4px 4px 4px 14px">
+<label for="ph-composer" class="sr">给 Agent 的下一条指令</label>
+<textarea id="ph-composer" rows="1" placeholder="{{placeholder}}" style="flex:1;resize:none;border:0;background:transparent;font-size:16px;line-height:1.5;padding:8px 0;min-height:40px"></textarea>
+<button aria-label="发送" class="glass-tint icb press" style="width:40px;height:40px"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="stroke-width:2.2"><path d="M12 19V5M6 11l6-6 6 6"></path></svg></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{onDiff}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding:170px 0 130px;display:flex;flex-direction:column;gap:12px">
+<div style="margin:0 16px;background:var(--surface);border:1px solid var(--hair);border-radius:16px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 6px 6px 4px">
+<span style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:5px;background:#0075de;color:#fff;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="stroke-width:3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></span>
+<span class="mono" style="flex:1;min-width:0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">auth/oauth.go</span>
+<span class="mono" style="font-size:12px;color:var(--ink2)">+86 −19</span>
+<span style="width:36px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:2px 8px 2px 12px;background:var(--canvas);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)">
+<span class="mono" style="flex:1;font-size:11.5px;color:var(--muted)">@@ -42,6 +42,10 @@</span>
+<button class="btn-u" style="height:36px;padding:0 12px;font-size:14px">暂存</button>
+<button class="btn-u" style="height:36px;padding:0 12px;font-size:14px">丢弃</button>
+</div>
+<div class="mono">
+<div class="ln"><span>43</span><span></span><span>    code := r.URL.Query().Get("code")</span></div>
+<div class="ln" style="background:var(--del)"><span>44</span><span>−</span><span>    token, err := exchange(ctx, code)</span></div>
+<div class="ln" style="background:var(--add)"><span>44</span><span>+</span><span>    verifier, err := loadVerifier(r)</span></div>
+<div class="ln" style="background:var(--add)"><span>45</span><span>+</span><span>    if err != nil {</span></div>
+<div class="ln" style="background:var(--add)"><span>46</span><span>+</span><span>        return ErrMissingVerifier</span></div>
+<div class="ln" style="background:var(--add)"><span>47</span><span>+</span><span>    }</span></div>
+<div class="ln" style="background:var(--add)"><span>48</span><span>+</span><span>    token, err := exchangePKCE(ctx, code, verifier)</span></div>
+<div class="ln"><span>49</span><span></span><span>    if err != nil {</span></div>
+</div>
+</div>
+<div style="margin:0 16px;background:var(--surface);border:1px solid var(--hair);border-radius:16px;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 4px">
+<span style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:5px;background:#0075de;color:#fff;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="stroke-width:3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></span>
+<span class="mono" style="flex:1;font-size:13px;font-weight:600">auth/pkce.go</span><span class="chip" style="height:22px">新文件</span><span class="mono" style="font-size:12px;color:var(--ink2)">+41</span>
+<span style="width:36px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></span>
+</div>
+<div style="margin:0 16px;background:var(--surface);border:1px solid var(--hair);border-radius:16px;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 4px">
+<span style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:5px;border:1.5px solid var(--muted)"></span></span>
+<span class="mono" style="flex:1;font-size:13px;font-weight:600">auth/oauth_test.go</span><span class="mono" style="font-size:12px;color:var(--ink2)">+15 −9</span>
+<span style="width:36px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></span>
+</div>
+</div>
+<div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:180px;pointer-events:none;background:linear-gradient(var(--canvas) 50%,color-mix(in srgb,var(--canvas) 80%,transparent) 75%,transparent)"></div>
+<header style="position:absolute;top:62px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button onClick="{{backFromDiff}}" aria-label="返回会话" class="glass icb press"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="stroke-width:2.2"><path d="m15 6-6 6 6 6"></path></svg></button>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center"><span style="font-size:16px;font-weight:600">变更</span><span class="eyebrow" style="color:var(--muted)">3 个文件 · +142 −28 · 已审阅 2/3</span></div>
+<span style="width:44px"></span>
+</header>
+<div style="position:absolute;top:118px;left:16px;right:16px;display:flex;padding:3px;border-radius:9999px;background:var(--ov)">
+<span style="flex:1;height:36px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center">未提交</span>
+<span style="flex:1;height:36px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;background:var(--surface);box-shadow:rgba(0,0,0,0.08) 0px 1px 3px">对比 main</span>
+</div>
+<div class="glass" style="position:absolute;left:12px;right:12px;bottom:30px;border-radius:30px;padding:6px;display:flex;align-items:center;gap:8px">
+<span style="flex:1;padding-left:14px;font-size:14px;line-height:1.43;color:var(--muted)">在 Mac 上执行 git 与 gh</span>
+<button class="glass-tint press" style="height:48px;padding:0 22px;border-radius:9999px;font-size:16px;font-weight:500">创建 PR</button>
+</div>
+</sc-if>
+
+<sc-if value="{{denySheet}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;background:var(--dim)">
+<button onClick="{{cancelDeny}}" aria-label="关闭" style="position:absolute;inset:0;cursor:default"></button>
+<div role="dialog" aria-labelledby="deny-title" class="glass lift" style="position:absolute;left:8px;right:8px;bottom:8px;border-radius:48px;padding:10px 20px 28px;display:flex;flex-direction:column;gap:12px">
+<span aria-hidden="true" style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--faint);opacity:.6"></span>
+<div style="display:flex;align-items:center;gap:8px">
+<button onClick="{{cancelDeny}}" aria-label="取消" class="icb" style="background:var(--ov)"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+<h2 id="deny-title" style="margin:0;flex:1;text-align:center;font-size:20px;line-height:1.4;font-weight:600">拒绝并附原因</h2>
+<span style="width:44px"></span>
+</div>
+<div class="mono" style="font-size:12.5px;color:var(--muted);text-align:center">go test ./internal/auth/... -v -race</div>
+<label for="ph-reason" class="sr">告诉 Claude 应该怎么改</label>
+<textarea id="ph-reason" value="{{reason}}" onChange="{{onReason}}" rows="3" placeholder="告诉 Claude 应该怎么改（可选）" style="resize:none;border:1px solid #0075de;border-radius:4px;padding:10px 12px;font-size:16px;line-height:1.5;background:var(--surface)"></textarea>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button onClick="{{fill1}}" class="chip" style="height:36px">只跑 internal/auth 的单测</button>
+<button onClick="{{fill2}}" class="chip" style="height:36px">先不加 -race</button>
+</div>
+<button onClick="{{confirmDeny}}" class="glass-tint press" style="height:50px;border-radius:9999px;font-size:16px;font-weight:500;margin-top:4px">拒绝并发送</button>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["浅色","深色"],"default":"浅色","section":"外观"},"$preview":{"width":402,"height":874}}'>
+class Component extends DCLogic {
+  state = { screen: 'inbox', sel: 'oauth', appr: 'pending', reason: '', reasonShown: '', q: null, qDone: false, qAnswer: '' };
+
+  renderVals() {
+    const s = this.state;
+    const set = (o) => this.setState(o);
+    const themeClass = (this.props.appearance ?? '浅色') === '深色' ? 'dk' : '';
+    const oauthOpen = s.appr === 'pending' || s.appr === 'denying';
+    const isOauth = s.sel === 'oauth';
+    const chips = isOauth ? [{ t: 'claude-direct' }, { t: 'Sonnet' }, { t: '订阅登录 · 订阅额度' }, { t: '权限：询问' }] : [{ t: 'Codex · app-server' }, { t: 'ChatGPT 登录' }, { t: '审批：按 Codex 配置' }];
+    const qOpts = [
+      { k: 'bucket', label: '令牌桶', desc: '允许短时突发，实现简单。' },
+      { k: 'window', label: '滑动窗口计数', desc: '更平滑，Redis 多一次 ZSET 操作。' }
+    ].map((o) => ({ ...o, checked: s.q === o.k, border: s.q === o.k ? '#0075de' : 'var(--hair)', bg: s.q === o.k ? 'rgba(0,117,222,0.06)' : 'var(--surface)', pick: () => set({ q: o.k }) }));
+    const running = [{ branch: 'perf/orders-n-plus-1', sub: '跑测试 · 1 分 20 秒', letter: 'X', bg: '#2a9d99', fg: '#ffffff' }];
+    if (!oauthOpen) running.unshift({ branch: 'feat/oauth-pkce', sub: 'go test · 刚刚开始', letter: 'C', bg: '#dd5b00', fg: '#ffffff' });
+    if (s.qDone) running.unshift({ branch: 'fix/rate-limit', sub: '实现' + s.qAnswer, letter: 'X', bg: '#2a9d99', fg: '#ffffff' });
+    const needCount = String((oauthOpen ? 1 : 0) + (s.qDone ? 0 : 1) + 1);
+    return {
+      themeClass, chips, qOpts, running, needCount,
+      onInbox: s.screen === 'inbox', onSession: s.screen === 'session', onDiff: s.screen === 'diff',
+      showOauthCard: oauthOpen, showRateCard: !s.qDone, allClear: !oauthOpen && s.qDone,
+      openOauth: () => set({ screen: 'session', sel: 'oauth' }), openRate: () => set({ screen: 'session', sel: 'rate' }),
+      goInbox: () => set({ screen: 'inbox', appr: s.appr === 'denying' ? 'pending' : s.appr }),
+      openDiff: () => set({ screen: 'diff' }), backFromDiff: () => set({ screen: 'session' }),
+      isOauth, isRate: s.sel === 'rate',
+      title: isOauth ? 'feat/oauth-pkce' : 'fix/rate-limit',
+      subtitle: isOauth ? 'api-server · Claude Code' : 'api-server · Codex',
+      apprOpen: oauthOpen, apprAllowed: s.appr === 'allowed', apprDenied: s.appr === 'denied', denySheet: s.appr === 'denying' && s.screen === 'session',
+      allowOnce: () => set({ appr: 'allowed' }), startDeny: () => set({ appr: 'denying' }), cancelDeny: () => set({ appr: 'pending' }),
+      confirmDeny: () => set({ appr: 'denied', reasonShown: s.reason.trim() ? '附原因：' + s.reason.trim() : '未附原因' }),
+      reason: s.reason, reasonShown: s.reasonShown, onReason: (e) => set({ reason: e.target.value }),
+      fill1: () => set({ reason: '只跑 internal/auth 的单测，不要跑全量集成测试' }), fill2: () => set({ reason: '先不加 -race，CI 上再跑' }),
+      qOpen: !s.qDone, qDone: s.qDone, qNone: !s.q, qAnswer: s.qAnswer,
+      submitQ: () => { if (s.q) set({ qDone: true, qAnswer: s.q === 'bucket' ? '令牌桶' : '滑动窗口计数' }); },
+      placeholder: isOauth && !oauthOpen ? '运行中，新消息会排队…' : '输入下一条指令…'
+    };
+  }
+}
+</script>
+</body>
+</html>

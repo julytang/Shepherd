@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · iPad 竖屏审查与创建 PR</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--input:#dddddd;--ov:rgba(0,0,0,0.05);--link:#0075de;--needInk:#793400;--needBg:rgba(221,91,0,0.08);--selBg:rgba(0,117,222,0.10);--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);--add:rgba(26,174,57,0.12);--del:rgba(255,100,200,0.14);color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--input:#4a4744;--ov:rgba(255,255,255,0.08);--link:#62aef0;--needInk:#f2a464;--needBg:rgba(221,91,0,0.16);--selBg:rgba(0,117,222,0.26);--glass:rgba(44,43,41,0.6);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);--add:rgba(26,174,57,0.2);--del:rgba(255,100,200,0.2);color-scheme:dark}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
+input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #0075de;outline-offset:2px}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glassEdge);box-shadow:inset 0 1px 0 var(--glassHi),rgba(0,0,0,0.04) 0px 4px 18px,rgba(0,0,0,0.027) 0px 2.025px 7.847px}
+.lift{box-shadow:rgba(0,0,0,0.02) 0px 3px 7px,rgba(0,0,0,0.04) 0px 14px 28px,rgba(0,0,0,0.12) 0px 23px 52px,inset 0 1px 0 var(--glassHi)}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.btn-u{height:44px;padding:4px 16px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:16px;line-height:1.5;font-weight:500;white-space:nowrap;background:var(--surface);border:1px solid var(--hair)}
+.ln{display:grid;grid-template-columns:44px 18px minmax(0,1fr);font-size:13px;line-height:24px}
+.ln span:first-child{color:var(--faint);text-align:right;padding-right:8px}
+.ln span:nth-child(2){text-align:center}
+.ln span:last-child{white-space:pre;overflow:hidden;text-overflow:ellipsis;padding-right:16px}
+.field{border:1px solid var(--input);border-radius:4px;padding:8px 10px;background:var(--surface);width:100%}
+</style>
+</helmet>
+<div class="th {{themeClass}}" style="width:834px;height:1210px;position:relative;overflow:hidden;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased">
+
+<div style="position:absolute;inset:0;overflow:hidden;padding:136px 24px 40px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span style="font-size:22px;line-height:1.27;font-weight:700;letter-spacing:-0.25px">3 个文件 · +142 −28</span>
+<span style="font-size:14px;color:var(--muted)">feat/oauth-pkce · 对比 main · 已审阅 2/3</span>
+</div>
+<div style="display:flex;padding:3px;border-radius:9999px;background:var(--ov)">
+<span style="height:38px;padding:0 14px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center">未提交</span>
+<span style="height:38px;padding:0 14px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center;background:var(--surface);box-shadow:rgba(0,0,0,0.08) 0px 1px 3px">对比 main</span>
+</div>
+</div>
+
+<section aria-label="internal/auth/oauth.go" style="background:var(--surface);border:1px solid var(--hair);border-radius:12px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 6px 6px">
+<button aria-label="已审阅" aria-pressed="true" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:5px;background:#0075de;color:#fff;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="stroke-width:3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></button>
+<span class="mono" style="width:22px;height:22px;border-radius:5px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;background:var(--ov)">M</span>
+<span class="mono" style="flex:1;font-size:13.5px;font-weight:600">internal/auth/oauth.go</span>
+<span class="mono" style="font-size:13px;color:var(--ink2)">+86 −19</span>
+<button class="btn-u" style="height:40px;font-size:15px">在 Mac 上打开<svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path></svg></button>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:2px 8px 2px 16px;background:var(--canvas);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)">
+<span class="mono" style="flex:1;font-size:12.5px;color:var(--muted)">@@ -42,6 +42,10 @@ func HandleCallback</span>
+<button class="btn-u" style="height:40px;font-size:15px">暂存</button>
+<button class="btn-u" style="height:40px;font-size:15px">丢弃</button>
+</div>
+<div class="mono">
+<div class="ln"><span>42</span><span></span><span>func HandleCallback(w http.ResponseWriter, r *http.Request) error {</span></div>
+<div class="ln"><span>43</span><span></span><span>    code := r.URL.Query().Get("code")</span></div>
+<div class="ln" style="background:var(--del)"><span>44</span><span>−</span><span>    token, err := exchange(r.Context(), code)</span></div>
+<div class="ln" style="background:var(--add)"><span>44</span><span>+</span><span>    verifier, err := loadVerifier(r)</span></div>
+<div class="ln" style="background:var(--add)"><span>45</span><span>+</span><span>    if err != nil {</span></div>
+<div class="ln" style="background:var(--add)"><span>46</span><span>+</span><span>        return ErrMissingVerifier</span></div>
+<div class="ln" style="background:var(--add)"><span>47</span><span>+</span><span>    }</span></div>
+<div class="ln" style="background:var(--add)"><span>48</span><span>+</span><span>    token, err := exchangePKCE(r.Context(), code, verifier)</span></div>
+<div class="ln"><span>49</span><span></span><span>    if err != nil {</span></div>
+<div class="ln"><span>50</span><span></span><span>        return fmt.Errorf("exchange: %w", err)</span></div>
+</div>
+</section>
+
+<section aria-label="internal/auth/pkce.go" style="background:var(--surface);border:1px solid var(--hair);border-radius:12px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 6px 6px">
+<button aria-label="已审阅" aria-pressed="true" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:5px;background:#0075de;color:#fff;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="stroke-width:3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></button>
+<span class="mono" style="width:22px;height:22px;border-radius:5px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;background:var(--add)">A</span>
+<span class="mono" style="flex:1;font-size:13.5px;font-weight:600">internal/auth/pkce.go</span>
+<span class="mono" style="font-size:13px;color:var(--ink2)">+41</span>
+<button aria-label="展开" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></button>
+</div>
+</section>
+
+<section aria-label="internal/auth/oauth_test.go" style="background:var(--surface);border:1px solid var(--hair);border-radius:12px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 6px 6px">
+<button aria-label="标记已审阅" aria-pressed="false" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center"><span style="width:20px;height:20px;border-radius:5px;border:1.5px solid var(--muted)"></span></button>
+<span class="mono" style="width:22px;height:22px;border-radius:5px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;background:var(--ov)">M</span>
+<span class="mono" style="flex:1;font-size:13.5px;font-weight:600">internal/auth/oauth_test.go</span>
+<span class="mono" style="font-size:13px;color:var(--ink2)">+15 −9</span>
+<button aria-label="收起" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:2px 8px 2px 16px;background:var(--canvas);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)">
+<span class="mono" style="flex:1;font-size:12.5px;color:var(--muted)">@@ -88,9 +88,15 @@ func TestHandleCallback</span>
+<button class="btn-u" style="height:40px;font-size:15px">暂存</button>
+<button class="btn-u" style="height:40px;font-size:15px">丢弃</button>
+</div>
+<div class="mono">
+<div class="ln"><span>88</span><span></span><span>func TestHandleCallback_Errors(t *testing.T) {</span></div>
+<div class="ln" style="background:var(--del)"><span>89</span><span>−</span><span>    cases := []string{"bad-state"}</span></div>
+<div class="ln" style="background:var(--add)"><span>89</span><span>+</span><span>    cases := []struct{ name, want string }{</span></div>
+<div class="ln" style="background:var(--add)"><span>90</span><span>+</span><span>        {"state mismatch", "ErrStateMismatch"},</span></div>
+<div class="ln" style="background:var(--add)"><span>91</span><span>+</span><span>        {"missing verifier", "ErrMissingVerifier"},</span></div>
+<div class="ln" style="background:var(--add)"><span>92</span><span>+</span><span>        {"code expired", "ErrCodeExpired"},</span></div>
+<div class="ln" style="background:var(--add)"><span>93</span><span>+</span><span>    }</span></div>
+</div>
+</section>
+</div>
+
+<div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:130px;pointer-events:none;background:linear-gradient(var(--canvas) 0%,color-mix(in srgb,var(--canvas) 88%,transparent) 60%,transparent 100%)"></div>
+
+<header style="position:absolute;top:24px;left:16px;right:16px;height:52px;display:flex;align-items:center;gap:10px">
+<button class="glass" style="height:44px;padding:0 16px 0 10px;border-radius:9999px;display:inline-flex;align-items:center;gap:4px;font-size:16px;font-weight:500"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>feat/oauth-pkce</button>
+<span style="flex:1;text-align:center;font-size:17px;font-weight:600">变更</span>
+<div class="glass" style="height:44px;border-radius:9999px;display:flex;padding:3px">
+<span style="height:36px;padding:0 14px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center;background:var(--surface)">统一</span>
+<span style="height:36px;padding:0 14px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center">并排</span>
+</div>
+<button aria-expanded="true" class="glass-tint" style="height:44px;padding:0 18px;border-radius:9999px;display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:500"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"></path></svg>创建 PR</button>
+</header>
+
+<div role="dialog" aria-labelledby="pr-pop-title" class="glass lift" style="position:absolute;top:84px;right:16px;width:440px;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px">
+<svg aria-hidden="true" viewBox="0 0 24 12" width="24" height="12" style="position:absolute;top:-11px;right:62px"><path d="M0 12 12 0 24 12z" style="fill:var(--glass)"></path></svg>
+<h2 id="pr-pop-title" style="margin:0;font-size:20px;line-height:1.4;font-weight:600;letter-spacing:-0.125px">创建 PR</h2>
+<div style="display:flex;flex-direction:column;gap:6px">
+<label for="ipr-title" class="eyebrow" style="color:var(--muted)">标题</label>
+<input id="ipr-title" class="field" value="feat(auth): enforce OAuth PKCE on callback" readOnly="{{yes}}" style="height:44px;font-size:16px">
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span class="eyebrow" style="color:var(--muted)">正文 · 根据 Diff 草拟</span>
+<div class="field" style="font-size:15px;line-height:1.5;display:flex;flex-direction:column;gap:4px">
+<span>· callback 改用 PKCE，授权请求带 S256 challenge</span>
+<span>· 新增 pkce.go，verifier 存进加密 cookie</span>
+<span>· 12 项测试通过，含三条异常路径</span>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:12px">
+<span class="eyebrow" style="color:var(--muted);flex:1">状态</span>
+<div style="display:flex;padding:3px;border-radius:9999px;background:var(--ov)">
+<span style="height:38px;padding:0 14px;font-size:15px;font-weight:500;display:flex;align-items:center">草稿</span>
+<span style="height:38px;padding:0 14px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center;background:var(--surface);box-shadow:rgba(0,0,0,0.08) 0px 1px 3px">可以审查</span>
+</div>
+</div>
+<div style="display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.43;color:var(--muted)">
+<svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="margin-top:2px"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2 19h20"></path></svg>
+<span>在 July 的 MacBook Pro 上依次执行 git commit → git push -u origin feat/oauth-pkce → gh pr create。还有 1 个文件未审阅。</span>
+</div>
+<button class="glass-tint" style="height:50px;border-radius:9999px;font-size:16px;font-weight:500;display:flex;align-items:center;justify-content:center">创建 PR</button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["浅色","深色"],"default":"深色","section":"外观"},"$preview":{"width":834,"height":1210}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, themeClass: (this.props.appearance ?? '深色') === '深色' ? 'dk' : '' };
+  }
+}
+</script>
+</body>
+</html>

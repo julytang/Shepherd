@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · iPhone Duo 半开书本姿态</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--ov:rgba(0,0,0,0.05);--link:#0075de;--selBg:rgba(0,117,222,0.10);--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);--add:rgba(26,174,57,0.12);--del:rgba(255,100,200,0.14);color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--ov:rgba(255,255,255,0.08);--link:#62aef0;--selBg:rgba(0,117,222,0.26);--glass:rgba(44,43,41,0.58);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);--add:rgba(26,174,57,0.2);--del:rgba(255,100,200,0.2);color-scheme:dark}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
+textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #0075de;outline-offset:2px}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glassEdge);box-shadow:inset 0 1px 0 var(--glassHi),rgba(0,0,0,0.04) 0px 4px 18px,rgba(0,0,0,0.027) 0px 2.025px 7.847px}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.icb{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-u{height:40px;padding:4px 12px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;white-space:nowrap;background:var(--surface);border:1px solid var(--hair)}
+.chip{height:26px;padding:0 10px;border-radius:9999px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;letter-spacing:.125px;background:var(--ov);color:var(--ink2);white-space:nowrap}
+.ln{display:grid;grid-template-columns:34px 16px minmax(0,1fr);font-size:12.5px;line-height:22px}
+.ln span:first-child{color:var(--faint);text-align:right;padding-right:6px}
+.ln span:nth-child(2){text-align:center}
+.ln span:last-child{white-space:pre;overflow:hidden;text-overflow:ellipsis;padding-right:12px}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(26,174,57,0.5)}70%{box-shadow:0 0 0 6px rgba(26,174,57,0)}100%{box-shadow:0 0 0 0 rgba(26,174,57,0)}}
+.pulse{animation:pulse 1.8s ease-out infinite}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+</helmet>
+<div class="th {{themeClass}}" style="width:951px;height:669px;position:relative;overflow:hidden;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+
+<section aria-label="对话" style="position:relative;min-width:0">
+<div style="position:absolute;inset:0;padding:110px 20px 92px;display:flex;flex-direction:column;justify-content:flex-end;gap:12px">
+<div style="align-self:flex-end;max-width:88%;background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:10px 14px;font-size:16px;line-height:1.5">PKCE 改造后跑一下认证模块的竞态测试。</div>
+<div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:#1aae39;stroke-width:2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>已允许一次 · 在 Mac 上执行</div>
+<div style="background:var(--surface);border:1px solid var(--hair);border-radius:14px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 14px"><span class="dot pulse" style="background:#1aae39"></span><span style="font-size:15px;font-weight:500">运行中</span><span class="mono" style="flex:1;min-width:0;font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">go test ./internal/auth/... -v -race</span><span style="font-size:14px;color:var(--muted)">18 秒</span></div>
+<div class="mono" style="padding:8px 14px 10px;background:var(--canvas);font-size:12px;line-height:1.6;color:var(--ink2)"><div>--- PASS: TestHandleCallback_PKCE (0.03s)</div><div>--- PASS: TestHandleCallback_StateMismatch (0.01s)</div><div>=== RUN   TestHandleCallback_CodeExpired</div></div>
+</div>
+<p style="margin:0;font-size:16px;line-height:1.5">前两项已通过，正在跑 code 过期的用例。右侧可以边跑边审改动。</p>
+</div>
+<div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:130px;pointer-events:none;background:linear-gradient(var(--canvas) 45%,color-mix(in srgb,var(--canvas) 80%,transparent) 70%,transparent)"></div>
+<header style="position:absolute;top:20px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button aria-label="返回会话列表" class="glass icb"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="stroke-width:2.2"><path d="m15 6-6 6 6 6"></path></svg></button>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:17px;line-height:22px;font-weight:600">feat/oauth-pkce</span><span class="eyebrow" style="color:var(--muted)">api-server · Claude Code</span></div>
+</header>
+<div style="position:absolute;top:74px;left:20px;right:20px;display:flex;gap:6px;overflow:hidden"><span class="chip">claude-direct</span><span class="chip">订阅登录</span><span class="chip">权限：询问</span></div>
+<div style="position:absolute;left:16px;right:16px;bottom:16px">
+<div class="glass" style="border-radius:24px;padding:4px 4px 4px 14px;display:flex;align-items:center;gap:4px">
+<label for="duo-half-composer" class="sr">给 Agent 的下一条指令</label>
+<textarea id="duo-half-composer" rows="1" placeholder="运行中，新消息会排队…" style="flex:1;resize:none;border:0;background:transparent;font-size:16px;line-height:1.5;padding:10px 0;min-height:44px"></textarea>
+<button aria-label="发送" class="glass-tint icb"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="stroke-width:2.2"><path d="M12 19V5M6 11l6-6 6 6"></path></svg></button>
+</div>
+</div>
+</section>
+
+<aside aria-label="变更" style="position:relative;min-width:0;background:var(--surface);border-left:1px solid var(--hair)">
+<div aria-label="竖条：工具栏按钮（系统给出的 trailing 边）" style="position:absolute;top:120px;right:14px;bottom:24px;width:60px;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:5">
+<div class="glass" style="width:60px;border-radius:9999px;padding:4px;display:flex;flex-direction:column;gap:2px;align-items:center">
+<button aria-label="切换统一 / 并排视图" class="icb" style="width:50px;height:50px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"></rect><path d="M12 3.5v17"></path></svg></button>
+<button aria-label="在 Mac 上用 Cursor 打开" class="icb" style="width:50px;height:50px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"></path></svg></button>
+</div>
+<span style="flex:1"></span>
+<button aria-label="创建 PR" class="glass-tint" style="width:60px;height:72px;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"></path></svg><span style="font-size:11px;font-weight:600">PR</span></button>
+</div>
+<div style="position:absolute;top:0;left:0;bottom:0;right:88px;padding:76px 0 24px;display:flex;flex-direction:column">
+<div style="padding:0 14px 8px;display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 8px;border-radius:8px;background:var(--selBg)"><span class="mono" style="width:20px;height:20px;border-radius:5px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;background:var(--ov)">M</span><span class="mono" style="flex:1;font-size:12.5px">internal/auth/oauth.go</span><span class="mono" style="font-size:12px;color:var(--ink2)">+86 −19</span></div>
+<div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 8px;border-radius:8px"><span class="mono" style="width:20px;height:20px;border-radius:5px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;background:var(--add)">A</span><span class="mono" style="flex:1;font-size:12.5px">internal/auth/pkce.go</span><span class="mono" style="font-size:12px;color:var(--ink2)">+41</span></div>
+<div style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 8px;border-radius:8px"><span class="mono" style="width:20px;height:20px;border-radius:5px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;background:var(--ov)">M</span><span class="mono" style="flex:1;font-size:12.5px">internal/auth/oauth_test.go</span><span class="mono" style="font-size:12px;color:var(--ink2)">+15 −9</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:2px 12px 2px 16px;background:var(--canvas);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)">
+<span class="mono" style="flex:1;font-size:12px;color:var(--muted)">@@ -42,6 +42,10 @@</span>
+<button class="btn-u" style="height:36px">暂存</button>
+<button class="btn-u" style="height:36px">丢弃</button>
+</div>
+<div class="mono">
+<div class="ln"><span>43</span><span></span><span>    code := r.URL.Query().Get("code")</span></div>
+<div class="ln" style="background:var(--del)"><span>44</span><span>−</span><span>    token, err := exchange(r.Context(), code)</span></div>
+<div class="ln" style="background:var(--add)"><span>44</span><span>+</span><span>    verifier, err := loadVerifier(r)</span></div>
+<div class="ln" style="background:var(--add)"><span>45</span><span>+</span><span>    if err != nil {</span></div>
+<div class="ln" style="background:var(--add)"><span>46</span><span>+</span><span>        return ErrMissingVerifier</span></div>
+<div class="ln" style="background:var(--add)"><span>47</span><span>+</span><span>    }</span></div>
+<div class="ln" style="background:var(--add)"><span>48</span><span>+</span><span>    token, err := exchangePKCE(r.Context(), code, verifier)</span></div>
+<div class="ln"><span>49</span><span></span><span>    if err != nil {</span></div>
+<div class="ln"><span>50</span><span></span><span>        return fmt.Errorf("exchange: %w", err)</span></div>
+</div>
+</div>
+<header style="position:absolute;top:20px;left:16px;right:104px;height:48px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;display:flex;flex-direction:column"><span style="font-size:17px;line-height:22px;font-weight:600">变更</span><span class="eyebrow" style="color:var(--muted)">3 个文件 · +142 −28 · 对比 main · 已审阅 2/3</span></div>
+</header>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["浅色","深色"],"default":"浅色","section":"外观"},"$preview":{"width":951,"height":669}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { themeClass: (this.props.appearance ?? '浅色') === '深色' ? 'dk' : '' };
+  }
+}
+</script>
+</body>
+</html>
