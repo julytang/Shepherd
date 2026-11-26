@@ -1,7 +1,7 @@
 # Shepherd macOS 原生系统架构设计
 
 > **文档角色**：Shepherd 方案计划书 — 系统架构篇（`docs/02-architecture.md`）  
-> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成终版校准，**技术路线已最终锁定**。  
+> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成校准，**路线 C1 保留**。评审修订版 v2（2026-11-26）：性能与工期数字均为未实测目标；审批模型、进程清理、Worktree 安全与 Chat 渲染四处设计已按评审修正；**Claude Code 接入设计待专题对齐（见 §3.1.4）**。  
 > **目标平台与协议**：macOS 15.0+ (Sequoia) · **仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · Swift 6.0+ Strict Concurrency · **MIT License**  
 > **架构愿景**：以 Conductor / cmux 级别的 macOS 原生轻快体验，承载 Orca 级别的跨厂商 BYOA（Claude Code / Codex / ACP Agent）与 Git Worktree 并发隔离编排能力。  
 > **范围说明**：本期聚焦本地单机多 Agent 编排核心，**不包含**模型路由网关或协议转换代理（如 Magpie 类能力），仅在底层预留干净的子进程环境变量注入与协议扩展边界（详见第 7 节）。
@@ -21,7 +21,7 @@ Shepherd 的首要架构决策在于：**核心编排引擎与 Agent 协议驱�
 - **通信**：主 App 启动时拉起 `orcad` 子进程，读取 `orca-runtime.json` 发现本地 Unix Domain Socket（权限 `0600`），通过 Orca **自定义 NDJSON RPC 协议**（非标准 JSON-RPC 2.0，由 `zod` v4 校验、共 1,202 个方法）通信。
 - **源码审计澄清（先破除一个误判）**：`docs/01-orca-audit.md` 已证实 **`orcad` 脱离 Electron 的成本实为 0**（上游已通过 `check-runtime-electron-ratchet.mjs` 实现 0 处 `electron` 导入，且已彻底移除 `better-sqlite3`，全面改用 Node 24 内置 `node:sqlite`）。
 - **但实证暴露的四项致命硬代价**：
-  1. **包体与运行时重税**：锁定 `Node v24.22.3` 单二进制即达 **122.59 MB**（`darwin-arm64`）或 **125.76 MB**（`darwin-x64`，Universal 双架构约 **248 MB**），叠加 ~11 MB `orcad` JS bundle、**25 个平铺子 Worker/进程入口**（`daemon-entry`、watcher、多个 SQLite worker 等）及 `node-pty` / `@parcel/watcher` / `orca-provider-exec` 原生模块，未写一行 UI 即背负 ~150 MB+ 磁盘体积与 **250–500 MB** 常驻空闲内存；
+  1. **包体与运行时重税**：锁定 `Node v24.22.3` 单二进制即达 **122.59 MB**（`darwin-arm64`）或 **125.76 MB**（`darwin-x64`，Universal 双架构约 **248 MB**），叠加 ~11 MB `orcad` JS bundle、**25 个平铺子 Worker/进程入口**（`daemon-entry`、watcher、多个 SQLite worker 等）及 `node-pty` / `@parcel/watcher` / `orca-provider-exec` 原生模块，未写一行 UI 即背负 ~150 MB+ 磁盘体积（未压缩口径）与 **250–500 MB** 常驻空闲内存（估算，未实测）；
   2. **极难轻量裁剪（「能跑」≠「能裁」）**：`OrcaRuntimeService`（31.7 万 LOC）与 `1,202` 个 RPC 深度交织 Bots(143) / Browser(127) / Orchestration(65) / Mobile E2EE / Linear / Jira；黑盒挂载则背负 90% 冗余子系统与攻击面，强行剥离则需拆解数万行跨模块耦合且彻底断掉上游合并能力；
   3. **不可忽视的闭源 SDK 合规红线**：`orcad` 的 Claude Native Chat 强依赖 **`@anthropic-ai/claude-agent-sdk`（`0.3.330`）**，该包**并非 MIT 开源**，受 **Anthropic Commercial Terms of Service** 约束；
   4. **公证与跨进程排障成本**：macOS Notarization 须为 Node 24、`.node` 原生插件与 C 辅助进程逐一签 Hardened Runtime，且双进程状态同步与排障复杂度高。
@@ -33,42 +33,47 @@ Shepherd 的首要架构决策在于：**核心编排引擎与 Agent 协议驱�
   - `claude` CLI（直连双向 `stream-json` 控制协议 `--permission-prompt-tool stdio`，摆脱 `@anthropic-ai/claude-agent-sdk` 条款绑定）；
   - 通用 ACP Agent（标准 JSON-RPC 2.0 over stdio NDJSON）。
 - **优势**：
-  1. **极致轻快**：冷启动 0.2s–0.4s、空闲内存 45–75 MB、签名 `.dmg` 体积 12–22 MB，比 `orcad` Sidecar 轻量近一个数量级；
-  2. **架构纯净且体量极克制**：对照 `01-orca-audit.md` 第 5 节模块清点，Shepherd MVP 所需后端核心总量仅约 **8,000–10,000 行纯 Swift 代码**（不足 Orca `src/main` 140 万行的 1%），单进程内以 Swift 6 Actor 隔离，Xcode Instruments 一站式剖析；
+  1. **预期轻快**：冷启动 0.2s–0.4s、空闲内存 45–75 MB、签名 `.dmg` 体积 12–22 MB（均为设计目标，尚未实测），预期明显轻于 `orcad` Sidecar；
+  2. **架构纯净且体量极克制**：对照 `01-orca-audit.md` 第 5 节模块清点，Shepherd MVP 所需后端核心总量仅约 **8,000–10,000 行纯 Swift 代码**（不足 Orca `src/main` 140 万行的 1%；该估算不含 UI 且偏乐观，见 `01-orca-audit.md` §6 的 v2 注），单进程内以 Swift 6 Actor 隔离，Xcode Instruments 一站式剖析；
   3. **合规姿态干净**：零闭源商业 SDK 绑定，纯干净室协议实现，MIT 参考无污染。
 - **代价**：
   1. Claude Code 的 `stream-json` 底层控制协议缺乏显式 SemVer 承诺，上游 CLI 升级时存在字段微调的追新成本；
-  2. 需自行编写 Git Worktree 并发锁、脚本 SHA-256 信任门控、审批策略与异常恢复状态机（但可直接吸取 `stablyai/orca` 审计暴露的全部边界经验，避免踩坑）。
+  2. 需自行编写 Git Worktree 并发锁、脚本 SHA-256 信任门控、审批策略与异常恢复状态机（但可直接吸取 `stablyai/orca` 审计暴露的全部边界经验，避免踩坑）；
+  3. Claude 线协议在 Orca 中没有参考实现（Orca 把它交给 SDK），需要以官方 Python SDK（MIT）与实机 Golden-file 为依据（见 `01-orca-audit.md` §7.3）。
 
 #### 路线 C：分阶段演进路线（Protocol-First 抽象边界）
 路线 C 用强协议接口隔离「编排控制面」与「Agent 传输实现」，评估两个方向：
-- **策略 C1（纯 Swift 内核 + 按需轻量 ACP 逃生舱 — 最终锁定方案）**：Shepherd 主进程、Worktree 管理、SQLite 持久化、Codex 驱动、ACP Client、Claude `stream-json` 驱动全部 100% Swift 原生实现；所有 Agent 均隐藏在统一的 `AgentAdapter` Swift 协议之后。当上游 Claude CLI 底层 `stream-json` 发生破坏性变更时，可在 1 天内通过 `ACPClientAdapter` 切至用户本机/按需拉起的开放适配器 `@agentclientprotocol/claude-agent-acp` 作为零侵入降级通道，无需引入整套 Orca Sidecar。
+- **策略 C1（纯 Swift 内核 + 按需轻量 ACP 逃生舱 — 最终锁定方案）**：Shepherd 主进程、Worktree 管理、SQLite 持久化、Codex 驱动、ACP Client、Claude `stream-json` 驱动全部 100% Swift 原生实现；所有 Agent 均隐藏在统一的 `AgentAdapter` Swift 协议之后。当上游 Claude CLI 底层 `stream-json` 发生破坏性变更时，可通过 `ACPClientAdapter` 切至用户自行安装的适配器 `@agentclientprotocol/claude-agent-acp` 作为备用通道，无需引入整套 Orca Sidecar。**v2 更正**：该适配器直接依赖 `@anthropic-ai/claude-agent-sdk` 并要求 Node ≥ 22（`01-orca-audit.md` §7.2），启用它等于在用户机器上重新引入这两项运行时依赖；切换耗时、会话能否续用、审批行为是否一致均未实测，原「1 天内」「零侵入」的说法撤回。备用路径的排序待 Claude 接入专题确定（§3.1.4）。
 - **策略 C2（Sidecar-First 渐进替换 — 审计后已否决）**：经 `01-orca-audit.md` 查证，`orcad` 虽无 Electron 依赖，但挂接自定义 1,202 方法 RPC 契约 + 150 MB Node 24 包体 + 闭源 SDK 风险的短期收益远不如直接写 ~3,000 行 Swift 协议层，且后续迁移还要推倒重写一遍传输适配层，属于高沉没成本弯路，因此正式否决。
 
 ---
 
-### 1.2 六维度量化与定性对比矩阵（已校准 `01-orca-audit.md` 实测数据）
+### 1.2 六维度量化与定性对比矩阵
+
+> **口径说明（v2）**：路线 A 的体积与结构数据来自 `01-orca-audit.md` 的源码审计；三条路线的启动时间、内存、包体与周期数字都是估算，尚未实测，不应当作已验证的对比结果引用。
 
 | 评估维度 | 路线 A：Sidecar 混合模式（Swift + Orca `orcad`） | 路线 B：100% 纯 Swift 原生 | 路线 C1：纯 Swift 内核 + ACP 逃生舱（最终锁定） |
 | :--- | :--- | :--- | :--- |
 | **1. 冷启动速度**（点击图标至首屏可交互） | 1.5s – 2.8s（App 启动 + Node 24 启动 + ~11MB bundle 解析 + 多子 Worker 初始化） | **0.2s – 0.4s**（纯原生二进制直接渲染） | **0.2s – 0.4s**（逃生舱仅按需懒启动，不影响主进程） |
 | **2. 内存占用**（空闲 / 5 并发会话不含外部 Agent 进程） | 空闲 **250–500 MB**（`orcad` V8 堆 + 多个常驻子 Node/Worker 进程）；5 会话 400–700 MB | **空闲 45–75 MB；5 会话 110–180 MB** | **空闲 45–75 MB；5 会话 110–180 MB**（启用外部 ACP 桥时仅单会话额外 +45 MB） |
-| **3. 安装包体积**（签名压缩后 `.dmg`） | **150 – 260 MB**（仅 Node v24.22.3 `arm64` 即 122.6 MB，双架构 ~248 MB，另含 25 入口与 `.node` 模块） | **12 – 22 MB**（SwiftTerm 方案；若未来内嵌 `libghostty` 约 25–35 MB） | **12 – 22 MB**（零捆绑 Node 运行时，对齐 `03-product-and-ux.md` ≤25 MB 红线） |
-| **4. MVP 研发周期**（2 名熟悉 Swift 工程师） | 4 – 6 周（虽 0 Electron 解耦，但需适配自定义 RPC + 裁剪 31.7 万行 `OrcaRuntimeService` + 解决公证签名） | 5 – 6.5 周（含 M0 协议验证 Spike + ~1 万行核心 Swift 代码 + 原生 UI/Diff） | **5 – 6.5 周**（与路线 B 持平，且大幅降低协议漂移返工风险） |
-| **5. 上游协议追新与合规风险** | **合规高风险**（捆绑商业条款 `@anthropic-ai/claude-agent-sdk`）；裁剪分支无法合并上游 | **合规干净**；Codex/ACP 稳定，Claude `stream-json` 存在单点追新风险 | **合规干净且追新可控**（标准协议直连 + Claude 异常时秒切开放 `claude-agent-acp`） |
+| **3. 安装包体积**（签名压缩后 `.dmg`） | **150 – 260 MB**（仅 Node v24.22.3 `arm64` 即 122.6 MB，双架构 ~248 MB，另含 25 入口与 `.node` 模块；**口径注**：这些是未压缩体积，Node 官方发行包压缩后约 26–51 MB，压缩后的 `.dmg` 会明显小于此值（未实测），路线结论不依赖该数字） | **12 – 22 MB**（SwiftTerm 方案；若未来内嵌 `libghostty` 约 25–35 MB） | **12 – 22 MB**（零捆绑 Node 运行时，对齐 `03-product-and-ux.md` ≤25 MB 红线） |
+| **4. MVP 研发周期**（2 名熟悉 Swift 工程师） | 4 – 6 周（虽 0 Electron 解耦，但需适配自定义 RPC + 裁剪 31.7 万行 `OrcaRuntimeService` + 解决公证签名） | 原估 5 – 6.5 周；v2 目标 8 周（M0 扩至约 3 周 + ~1 万行核心 Swift 代码 + 原生 UI/Diff），待 M0 出口校准 | **目标 8 周，待 M0 出口校准**（与路线 B 持平；评审方的独立估算明显更长，见 `04-roadmap-and-engineering.md` §5 R12） |
+| **5. 上游协议追新与合规风险** | **合规高风险**（捆绑商业条款 `@anthropic-ai/claude-agent-sdk`）；裁剪分支无法合并上游 | **合规干净**；Codex/ACP 稳定，Claude `stream-json` 存在单点追新风险 | **直连路径合规姿态较稳，追新靠 Golden-file 与备用通道**（备用的 `claude-agent-acp` 依赖 SDK 与 Node，订阅登录下的合规性需公测前确认，见 §3.1.4） |
 | **6. 调试与排障复杂度** | **高**（Swift + Node 24 + 25 子进程 + `.node` 原生插件，Notarization 与崩溃归因复杂） | **低**（纯 Xcode 单进程调试、单一 Crash Log、Instruments 全链路分析） | **低**（95% 路径单进程调试，逃生舱走标准 stdio NDJSON 抓包） |
 
 ---
 
 ### 1.3 最终技术路线裁决（DECISION LOCKED）
 
-> **最终裁决**：**正式锁定路线 C1（100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选开放 ACP 逃生舱）**，彻底放弃复用 `orcad` Node Sidecar（路线 A / C2）。（注：开放逃生舱如 `@agentclientprotocol/claude-agent-acp` 仅作为按需调用的外部 CLI，绝不随 Shepherd 安装包捆绑。）
+> **最终裁决**：**正式锁定路线 C1（100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱）**，彻底放弃复用 `orcad` Node Sidecar（路线 A / C2）。（注：`@agentclientprotocol/claude-agent-acp` 这类适配器只作为用户自行安装的外部 CLI，不随 Shepherd 安装包捆绑；它自身依赖 Claude Agent SDK 与 Node，定位与排序见 §3.1.4。）
 
 **四条硬事实决策依据（全部已由 `docs/01-orca-audit.md` 交叉核验）**：
 1. **体量与性能红线不可妥协**：`orcad` 虽已零 Electron 依赖，但绑定 Node v24.22.3（122.6 MB）+ 25 个子进程入口导致冷启动、内存（250–500 MB）与安装包体积（150 MB+）全面击穿 `docs/03-product-and-ux.md` 确立的验收红线（TTI ≤ 400ms、空闲内存 ≤ 80 MB、`.dmg` ≤ 25 MB）。
 2. **「能脱离 Electron」不等于「能轻量裁剪」**：`OrcaRuntimeService`（31.7 万 LOC）与 1,202 个自定义 RPC 深度捆绑 Bots / Browser / Mobile / Linear / Jira；而 Shepherd MVP 核心后端用纯 Swift 干净实现仅需不足 **1 万行代码**，长期维护成本反而显著更低。
 3. **规避闭源 SDK 合规风险**：跳过 `orcad` 使 Shepherd 天然摆脱受 Anthropic Commercial Terms of Service 约束的 `@anthropic-ai/claude-agent-sdk`，保持纯粹的开源 BYOA（Bring Your Own Agent）中立姿态。
 4. **最大化复用 Orca 的真正精华**：将 `stablyai/orca`（MIT）作为**协议规格、边界坑位与状态机设计的活字典**——完整继承其经过生产验证的边界处理（如 Codex 未支持 Server Request 显式拒绝防挂起、`orca.yaml` 的 `worktree.sharedDirectories` + `git check-ignore` 校验、脚本内容 SHA-256 信任哈希门控、POSIX 进程组清场与中断 Worktree 删除的重启续跑队列），但不背负其任何历史技术债。
+
+> **v2 评审说明**：路线选择不依赖上面的估算数字。即使去掉「内存与包体领先一个数量级」和「不足 1 万行」这两个未实测的说法，C1 仍然成立：Shepherd 只需要 Orca 的一小部分能力，直接驱动本机 CLI 与产品边界吻合，并且不必把 Node 与 SDK 放进安装包。需要保留意见的只有一点：Orca 对 Claude 线协议不构成参考实现（`01-orca-audit.md` §7.3），这部分的依据要换成官方 Python SDK 与实机样本。
 
 ---
 
@@ -133,7 +138,7 @@ flowchart TB
 | UI 模块 | 实现技术 | 关键工程考量 |
 | :--- | :--- | :--- |
 | **主窗口与三栏布局** | SwiftUI `WindowGroup` + `NSSplitViewController` 桥接 | 精确保存各栏宽度（`autosaveName`）、支持一键折叠左侧栏与右侧 Diff Inspector、支持原生 Unified Toolbar 与毛玻璃侧栏材质（`.sidebar`）。 |
-| **Native Chat 对话流** | SwiftUI `ScrollView` + 增量块级模型；代码/长文本段使用 AppKit 文本视图 | **防抖渲染**：单条流式回复拆分为稳定历史块（Immutable）+ 当前活跃尾块（Mutable），仅活跃块响应 delta 更新，避免整条列表触发全量 Diff 重排。 |
+| **Native Chat 对话流** | **待 M0 Chat 渲染 Spike 选型**：候选一为 SwiftUI `ScrollView` + 增量块级模型（代码/长文本段用 AppKit 文本视图），候选二为与 Diff 相同的 AppKit 虚拟化列表（`NSTableView` / TextKit 2） | **防抖渲染**：单条流式回复拆分为稳定历史块（Immutable）+ 当前活跃尾块（Mutable），仅活跃块响应 delta 更新，避免整条列表触发全量 Diff 重排。**v2 补充**：Chat 是承担约 90% 交互的界面，长转录（200+ 条消息）下 SwiftUI 懒加载列表的滚动定位、跨块文本选择与流式 Markdown 增量解析都是已知难点，不应只给 Diff 做虚拟化；Markdown 引擎尚未选型（见 `04-roadmap-and-engineering.md` §1.3）。 |
 | **高性能 Diff 查看器** | **AppKit `NSTextView`（TextKit 2）** 或 **虚拟化 `NSTableView`** | 当单次 Agent 重构涉及 50 个文件 / 8,000 行 Diff 时，SwiftUI `LazyVStack` 会出现滚动掉帧与高内存；使用基于行/Hunk 虚拟化的 `NSTableView`（配合异步语法高亮缓存，如 `swift-tree-sitter`）可稳定保持 120fps（ProMotion）。 |
 | **菜单栏常驻伴侣** | SwiftUI `MenuBarExtra(.window)` | 实时展示并发 Worktree 聚合徽章（绿色空闲 / 蓝色运行 / **琥珀色待审批数字**），点击弹窗可一目了然查看所有运行中任务并一键唤起对应窗口；遵循安全原则，不在极窄 Popover 中提供高危命令盲批按钮，一律点击跳入主窗口看清上下文后再 `⌘↩` 确认。 |
 | **系统级审批通知** | `UNUserNotificationCenter` + 深链接路由 | 对「待审批 / 已完成 / 报错」三类事件精准推送（当前窗口已聚焦该 Worktree 时自动抑制免打扰）；携带 `worktree_id` 与 `approval_id`，点击通知直接激活主窗口并聚焦对应内联审批条。 |
@@ -232,7 +237,7 @@ public enum AgentEvent: Sendable, Equatable {
     case toolCallStarted(turnId: String, callId: String, category: ToolCategory, title: String, inputSummary: String)
     case toolCallOutputDelta(turnId: String, callId: String, chunk: String)
     case toolCallCompleted(turnId: String, callId: String, exitCode: Int?, outputSummary: String, isError: Bool)
-    case approvalRequested(turnId: String, payload: ApprovalPayload)
+    case approvalRequested(turnId: String, payload: ApprovalPayload)   // v2：只覆盖「权限确认」，问题作答与表单填写需另行建模，见下方说明
     case fileDiffHint(paths: [String])  // 触发 GitDiffEngine 增量刷新
     case usageUpdated(UsageSnapshot)
     case turnCompleted(turnId: String, stopReason: String)
@@ -244,11 +249,19 @@ public protocol AgentAdapter: Sendable {
     var provider: AgentProviderKind { get }
     func start(config: AgentLaunchConfig) async throws -> AsyncThrowingStream<AgentEvent, Error>
     func sendPrompt(_ prompt: UserPromptInput) async throws
-    func respondApproval(requestId: String, decision: ApprovalDecision) async throws
+    func respondApproval(requestId: String, decision: ApprovalDecision) async throws   // v2：单一 decision 装不下 answers 与表单 content，见下方说明
     func interruptCurrentTurn() async throws
     func terminate() async
 }
 ```
+
+> **v2 契约修订（草案待改，本轮只改文档、不改接口代码）**：上面的草案把所有需要用户参与的请求都当成「审批」，并用一个 `decision` 回复。用本机 `codex` 0.172.0 生成的协议 Schema 核对后，这个抽象装不下 Codex 的四类反向请求（`01-orca-audit.md` §7.4）：Agent 问「选哪种迁移策略」时，一个「允许」按钮传不回用户的答案。接口需要按下表拆成三类交互。它们进入同一个「待处理」列表，但各自保留原始语义与回包结构。
+
+| 交互类型 | 用户看到的界面 | Codex 来源与回包 | Claude / ACP 对应 |
+| :--- | :--- | :--- | :--- |
+| **权限确认** | 内联审批条（允许一次 / 本会话允许 / 拒绝 / 取消） | `item/commandExecution/requestApproval`、`item/fileChange/requestApproval` → 回 `decision`（命令审批另有两种策略修订选项） | Claude `can_use_tool`；ACP `session/request_permission` |
+| **问题作答** | 问答卡（选项或自由文本） | `item/tool/requestUserInput` → 回 `answers` | Claude 的用户问答类请求（待 §3.1.4 对齐）；ACP 视方言而定 |
+| **表单填写** | 表单卡（按请求给出的 Schema 渲染字段） | `mcpServer/elicitation/request` → 回 `action` 加可选 `content` | MCP elicitation，各 Agent 的支持程度待 M0 验证 |
 
 #### 3.1.2 三大厂商协议映射矩阵
 
@@ -261,15 +274,17 @@ public protocol AgentAdapter: Sendable {
 | **Thinking / 文本流** | `item/started` + `item/reasoning/*` + `item/agentMessage/delta` | `stream` 事件内的 `thinking_delta` / `text_delta` 及 `assistant` 完整块 | `session/update` (`agent_thought_chunk` / `agent_message_chunk` / `plan`) |
 | **工具调用事件** | `item/started` / `item/completed`（commandExecution / fileChange / mcpToolCall） | `assistant` 块中的 `tool_use` + `user` 块中的 `tool_result` | `session/update` (`tool_call` / `tool_call_update`) |
 | **权限审批与交互请求** | Server Request 统一分流：`item/commandExecution/requestApproval`、`item/fileChange/requestApproval`、`item/tool/requestUserInput`、`mcpServer/elicitation/request` | 入站 `type: "control_request"`（含 `request_id` 与嵌套 `request: { subtype: "can_use_tool", tool_name, input }`；最终线协议字段以 M0 实机 Golden-file 锁定） | Agent Request：`session/request_permission`（宿主侧执行策略门控） |
-| **权限审批回复** | JSON-RPC Response（匹配 `id`）：`accept` / `decline` / `cancel`；**所有未支持/历史 Server Request 必须显式返回拒绝或错误码，防止 `app-server` 永久挂起** | 写入 `stdin` 嵌套帧：`{ "type": "control_response", "response": { "subtype": "success", "request_id": "...", "response": { "behavior": "allow" \| "deny", ... } } }`（字段以 M0 Golden-file 实测锁定） | JSON-RPC Response（匹配 `id`）：所选 `optionId` 或取消 |
+| **权限审批回复** | JSON-RPC Response（匹配 `id`），**回包结构随请求类型不同**：命令与文件审批回 `decision`（`accept` / `acceptForSession` / `decline` / `cancel`，命令审批另有 `acceptWithExecpolicyAmendment` / `applyNetworkPolicyAmendment`），用户问答回 `answers`，MCP 表单回 `action` 加可选 `content`；**所有未支持/历史 Server Request 必须显式返回拒绝或错误码，防止 `app-server` 永久挂起** | 写入 `stdin` 嵌套帧：`{ "type": "control_response", "response": { "subtype": "success", "request_id": "...", "response": { "behavior": "allow" \| "deny", ... } } }`（字段以 M0 Golden-file 实测锁定） | JSON-RPC Response（匹配 `id`）：所选 `optionId` 或取消 |
 | **中断当前 Turn** | `turn/interrupt` | `control_request(subtype: "interrupt")`（降级发 `SIGINT`） | `session/cancel`（请求超时发 `$/cancel_request`） |
 | **用量与结束** | `turn/completed` + token usage 通知 | `result` 帧（含 `session_id`、`total_cost_usd`、token 统计；识别 `rate_limit_event` 提示限流） | `session/prompt` 返回 `stopReason` + 元数据 |
-| **专属健壮性处理** | 处理 `-32001` 过载指数退避；遵循零污染原则不改写 `~/.codex/hooks.json`；MVP 一会话一进程隔离，P1 可按需引入共享进程池（空闲 60s 回收 + 内存上限巡检） | 严格解析单行 JSON 容错非 JSON 告警输出；支持一键切至开放 `claude-agent-acp` 逃生舱 | 增量分帧 + 单行上限保护 + 断连尾帧排空；方言层适配模型发现模式与环境变量（如 `PI_NO_PTY=1`） |
+| **专属健壮性处理** | 处理 `-32001` 过载指数退避；遵循零污染原则不改写 `~/.codex/hooks.json`；MVP 一会话一进程隔离，P1 可按需引入共享进程池（空闲 60s 回收 + 内存上限巡检）；协议类型优先由 `codex app-server generate-json-schema`（实验性命令）生成，并在 CI 中比对 Schema 漂移 | 严格解析单行 JSON 容错非 JSON 告警输出；备用通道见 §3.1.4（待对齐） | 增量分帧 + 单行上限保护 + 断连尾帧排空；方言层适配模型发现模式与环境变量（如 `PI_NO_PTY=1`） |
 
-**Claude Code 三级兼容接入策略（零闭源 SDK + 应对协议漂移与 TUI 边界）**：
+> **v2 说明**：上表 Claude 一列与下面的三级接入策略是修订前的设计。本轮只更正了其中的事实性错误，没有按评审结论重写；启动参数、会话 ID 规则、权限映射与备用路径排序统一留到 §3.1.4 专题对齐后再定。
+
+**Claude Code 三级兼容接入策略（零闭源 SDK 捆绑 + 应对协议漂移与 TUI 边界）**：
 1. **默认主路径（Native Chat · 直连 `stream-json`）**：纯 Swift 直接驱动用户本机 `claude --print --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio`，**彻底不捆绑受 Anthropic Commercial Terms of Service 约束的 `@anthropic-ai/claude-agent-sdk`**，保留原生默认入口特征（绝不注入 `CLAUDE_CODE_ENTRYPOINT=orca`），支持双向审批与 `--resume` 断点续聊。
-2. **协议降级逃生舱（开放 ACP Adapter）**：若上游 Claude CLI 破坏性修改 `stream-json` 控制帧结构，可在设置中将底层无缝切至 `ACPClientAdapter` 驱动开放的 `@agentclientprotocol/claude-agent-acp`，业务层与 UI 零感知。
-3. **可选 PTY + Hook 应急路径（P1 终端抽屉联动，对齐 `01-orca-audit.md` macOS 实况）**：当开发者按 `⌘J` 在终端抽屉中手动运行原版交互式 `claude` TUI（使用 `/btw`、`/usage` 或排查订阅窗口额度消耗）时，通过会话级互斥锁防止 Native Chat 与 TUI 并发写同一会话，并采用 **macOS 轻量双通道状态同步**——无需单独编译 Rust Hook 二进制（上游 `orca-agent-hook.exe` 仅用于 Windows）：(a) 首选解析 PTY 输出流的 **`OSC 7501`（Program Status Protocol）**零侵入探测状态（支持新版 Claude Code / Codex / Grok / Kimi 等）；(b) 可选按需挂载极简 POSIX Shell + `curl --noproxy 127.0.0.1` 回调至本地 Loopback HTTP / Unix Socket（携带 256-bit Bearer Token，仅在用户显式启用时生效，默认绝不改写 `~/.claude/settings.json`，且超时 Fail-open 绝不卡死终端）。
+2. **备用通道（ACP Adapter）**：若上游 Claude CLI 破坏性修改 `stream-json` 控制帧结构，可在设置中把底层切到 `ACPClientAdapter`，驱动用户自行安装的 `@agentclientprotocol/claude-agent-acp`。**v2 更正**：该适配器依赖 Claude Agent SDK 与 Node ≥ 22；它包的是同一个 CLI，上游协议变动时同样要等适配器更新；切换后能否继续同一会话、保留上下文、按预期审批都未实测。原「无缝」「零感知」的说法撤回。
+3. **可选 PTY + Hook 应急路径（P1 终端抽屉联动，对齐 `01-orca-audit.md` macOS 实况）**：当开发者按 `⌘J` 在终端抽屉中手动运行原版交互式 `claude` TUI（使用 `/btw`、`/usage` 或排查订阅窗口额度消耗）时，通过会话级互斥锁防止 Native Chat 与 TUI 并发写同一会话，并采用 **macOS 轻量双通道状态同步**——无需单独编译 Rust Hook 二进制（上游 `orca-agent-hook.exe` 仅用于 Windows）：(a) 首选解析 PTY 输出流的 **`OSC 7501`（Program Status Protocol）**零侵入探测状态（支持新版 Claude Code / Codex / Grok / Kimi 等）；(b) 可选按需挂载极简 POSIX Shell + `curl --noproxy 127.0.0.1` 回调至本地 Loopback HTTP / Unix Socket（携带 256-bit Bearer Token，仅在用户显式启用时生效，默认绝不改写 `~/.claude/settings.json`，且超时 Fail-open 绝不卡死终端）。**v2 补充**：本机 `claude` 支持 `--settings <file-or-json>` 与 `--plugin-dir`，理论上可以按会话注入 hooks 而不写用户配置；这条路是否升为第一备用通道，待 §3.1.4 对齐。
 
 #### 3.1.3 协议消息流与审批闭环时序图
 
@@ -323,6 +338,24 @@ sequenceDiagram
     Coord-->>UI: 标记会话完成 + 更新菜单栏状态徽章 + 发送完成通知
 ```
 
+#### 3.1.4 Claude Code 接入待对齐清单（v2 · 未决策）
+
+评审发现 Claude Code 的接入设计有多处需要重新确定。下表各项是评审输入，**尚未决策**，留待专题讨论后再回写 §3.1.2 与 `04-roadmap-and-engineering.md` 的 M0 任务。事实依据见 `01-orca-audit.md` §7.2–§7.5。
+
+| # | 待定事项 | 已知事实 | 待讨论的选项 |
+| :---: | :--- | :--- | :--- |
+| 1 | **默认驱动与备用路径排序** | ACP 适配器依赖 SDK 与 Node ≥ 22；Anthropic 合规页对「未修改的 Claude Code 二进制」与「基于 SDK 的产品」表述不同；`claude` 支持 `--settings` / `--plugin-dir` 会话级注入 | 直连 CLI 为主；备用是「终端 + 会话级 hooks」还是 ACP 适配器，各排第几 |
+| 2 | **启动契约** | Orca 额外传 `--replay-user-messages`，并设 `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`；当前启动命令两项都没有 | 是否采用；其余参数以 Python SDK 源码与 M0 Golden-file 为准 |
+| 3 | **会话 ID 与续聊** | Orca 自己生成 ID：新会话用 `--session-id`，磁盘上已有转录才用 `--resume`，两者用错都会失败 | 是否沿用该规则；转录是否存在如何探测 |
+| 4 | **权限档位** | 判定顺序中 `canUseTool` 排最后，用户已有的允许规则与权限模式会先行决定；Orca 把档位直接映射到原生模式 | 提供哪些档位；是否显式覆盖用户的 `defaultMode` |
+| 5 | **「每次询问」能否兑现** | 控制协议有 `hook_callback`，hooks 在判定顺序中排第一；在 `initialize` 时注册 PreToolUse 回调，理论上能看到每次工具调用且不落盘。**未实测，Orca 也没有这样用** | 是否作为严格档位的实现方式并纳入 M0 验证 |
+| 6 | **无头模式的工作区信任** | `-p` 模式跳过信任对话，新 Worktree 里仓库自带的 `.claude/settings.json` hooks 等项目级配置不经确认即生效；脚本信任门控不覆盖这部分 | Shepherd 是否设自己的仓库信任门；是否限制 `--setting-sources` |
+| 7 | **线协议参考来源** | Orca 未实现线协议；官方 Python SDK 为 MIT 且源码可读 | 以 Python SDK 为实现依据，Golden-file 为回归依据 |
+| 8 | **终端接管后的转录对账** | TUI 中产生的轮次不会进入 Shepherd 的 SQLite；Orca 从 Claude 的 JSONL 转录回填 | 是否读取 Claude 自己的会话文件；该格式同样没有稳定性承诺 |
+| 9 | **环境变量清理** | Orca 启动前清掉继承的 `CLAUDE_CONFIG_DIR` 与被拒 API Key；Shepherd 已决定不改写 `CLAUDE_CODE_ENTRYPOINT` | `ProcessEnvironmentProvider` 采用哪些清理规则 |
+| 10 | **用量政策恢复时的预案** | 把 `claude -p` 用量移出订阅额度的方案于 2026 年 6 月暂停，未给恢复时间 | 终端通道在什么条件下升为 Claude 的主路径；是否因此提前终端抽屉 |
+| 11 | **工作量重估** | Orca 在 SDK 之上仍有约 1.3 万行结构化对话代码；原估 Claude 适配器 1.5–2 千行 | M0 出口按实测校准 |
+
 ---
 
 ### 3.2 Git Worktree 管理器设计
@@ -362,19 +395,22 @@ baseBranch: main
 setupAgentStartupPolicy: wait-for-setup
 
 worktree:
-  # 跨 Worktree 共享的未跟踪目录/文件（必须已存在且通过 git check-ignore 校验）
+  # 跨 Worktree 共享的未跟踪目录/文件（必须已存在且通过 git check-ignore 校验）。
+  # 共享目录在所有 Worktree 间是同一份物理目录：只共享只读、或内容与分支无关的大型缓存，
+  # 不要共享会被 setup 脚本或不同分支改写的目录（例如各分支 lockfile 不同的 node_modules）。
   sharedDirectories:
-    - node_modules
-    - .venv
+    - .cache/datasets
+    - third_party/prebuilt
   # 可选（Shepherd 扩展）：需要物理拷贝而非软链的局部配置文件
   copyPaths:
     - .env.test
 
 scripts:
-  # Worktree 创建并完成软链后执行的初始化脚本（首次或内容变化须经 SHA-256 信任门控确认）
+  # Worktree 创建并完成软链后执行的初始化脚本（首次出现或命令文本变化时须经信任门控确认）
   setup: |
     pnpm install --frozen-lockfile --prefer-offline
   # Worktree 归档/删除前执行的清理钩子（默认失败时阻断删除防资源泄露）
+  # 注意：信任门控只对这里的命令文本算哈希，被调用脚本文件的内容变化不会触发重新确认（见 3.2.3）
   archive: |
     ./scripts/cleanup-worktree.sh
 
@@ -384,14 +420,21 @@ env:
 ```
 
 > **向后兼容规则**：若用户在本地仓库偏好设置中配置了 `symlinkPaths`（用于软链 `.env.local` 等未入库单文件），运行时会与配置文件中的 `worktree.sharedDirectories` 合并去重执行。
+>
+> **v2 示例修正**：修订前的示例同时共享 `node_modules` 并在 `scripts.setup` 里执行 `pnpm install`，并发 Worktree 会互相改写同一个目录。示例已改为只共享与分支无关的缓存。现有 `orca.yaml` 若这样配置，Shepherd 仍兼容读取，但应在创建 Worktree 时给出提示。
 
 #### 3.2.3 并发安全、脚本信任门控与磁盘保护机制
-1. **Per-Repo 串行写锁（`RepoLockActor`）**：Git 的 `worktree add`、`worktree remove`、`worktree prune`、`branch -D` 与 `fetch` 都会竞争主仓库 `.git/` 下的 `packed-refs` 与 `worktrees/` 管理锁。`WorktreeManager` 为每个规范化后的 `repoCommonDir` 维护独立串行队列，确保同一仓库的拓扑变更严格串行执行，彻底杜绝并发创建 3 个任务时报错 `index.lock: File exists`；而不同 Worktree 目录内部的 `git status`/`git diff` 保持全并发。
+1. **Per-Repo 串行写锁（`RepoLockActor`）**：Git 的 `worktree add`、`worktree remove`、`worktree prune`、`branch -D` 与 `fetch` 都会竞争主仓库 `.git/` 下的 `packed-refs` 与 `worktrees/` 管理锁。`WorktreeManager` 为每个规范化后的 `repoCommonDir` 维护独立串行队列，确保同一仓库的拓扑变更严格串行执行，避免并发创建多个任务时出现锁冲突；而不同 Worktree 目录内部的 `git status`/`git diff` 保持全并发。
+   - **v2 实现约束**：Swift actor 在 `await` 处可重入，等待 git 子进程期间同一个 actor 会接受下一个调用，仅靠 actor 隔离不能保证串行。这里必须实现显式的异步串行队列（或异步互斥），并用并发测试验证。
+   - **v2 范围说明**：该锁只约束 Shepherd 自己发起的操作。Agent 与外部 IDE 在各自 Worktree 里执行的 git 命令不受它控制，所以仍要保留有限次数的抖动重试。
 2. **双层软链安全边界（`git check-ignore` + Path Traversal Guard）**：
-   - 借鉴 Orca 源码实证安全实践：对于来自仓库提交文件（`shepherd.yaml` / `orca.yaml`）的 `worktree.sharedDirectories`，软链前必须依次通过两道校验——① `standardizedFileURL.resolvingSymlinksInPath()` 路径穿越校验（源路径与目标路径严格位于主仓库与目标 Worktree 子树内，拒绝 `../` 越界）；② **`git check-ignore` 校验**（仅允许共享已存在且被 `.gitignore` 忽略的路径，彻底杜绝误将受 Git 跟踪的源码目录做成软链或覆盖代码）。
-3. **脚本内容 SHA-256 信任门控（Script Trust Gate）**：
+   - 借鉴 Orca 源码实证安全实践：对于来自仓库提交文件（`shepherd.yaml` / `orca.yaml`）的 `worktree.sharedDirectories`，软链前必须依次通过两道校验——① `standardizedFileURL.resolvingSymlinksInPath()` 路径穿越校验（源路径与目标路径严格位于主仓库与目标 Worktree 子树内，拒绝 `../` 越界）；② **`git check-ignore` 校验**（仅允许共享已存在且被 `.gitignore` 忽略的路径，防止误将受 Git 跟踪的源码目录做成软链或覆盖代码）。
+   - **v2 补充（实测）**：`.gitignore` 里带斜杠的目录规则（如 `node_modules/`）不匹配同名软链。建好软链后，Worktree 的 `git status` 会出现 `?? node_modules`，Agent 可能把它提交进去（`01-orca-audit.md` §7.4）。软链完成后需要把这些路径写入 `$GIT_COMMON_DIR/info/exclude`。这是一次对 `.git` 内部的写入（不进版本库），必须列入「零污染」承诺的已声明写入清单，并纳入 M0 Git Spike 验证。
+3. **脚本入口信任门控（Script Trust Gate，SHA-256）**：
    - 借鉴 Orca 的 `orca-hook-content-hash` 安全模型：执行来自仓库文件的 `scripts.setup` 或 `scripts.archive` 前，对 trimmed 脚本文本计算 **SHA-256 哈希**，比对 SQLite `trusted_hook_hashes` 表。
    - **未命中即拦截**：首次执行或 Git pull / 切分支引入了新脚本内容时，弹窗展示完整脚本文本与变更来源，必须由开发者显式点击「信任并执行」后才可运行；同时在 `trusted_hook_hashes` 表中按 `(repo_id, script_kind, content_sha256)` 复合唯一键保留多条历史已信任记录，防止开发者在多个可信分支间频繁切换时被重复打扰。
+   - **v2 边界声明**：哈希只覆盖 YAML 里的命令文本。如果命令调用的是仓库内脚本（如 `./scripts/cleanup-worktree.sh`），或会触发包管理器钩子（如 `pnpm install` 的 `postinstall`），被调用内容变化时命令文本不变，不会重新弹窗。因此这道门控的语义是对「此仓库执行此入口」的首次确认，防不住拉取陌生分支后被调用内容发生的变化。弹窗文案相应改为「信任此仓库执行此入口」。可选增强是把命令直接引用的仓库内脚本文件一并纳入哈希，是否采用在 M0 评估。
+   - **v2 已知缺口**：这道门控也不覆盖 Agent 自己加载的项目级配置。Claude 无头模式跳过工作区信任对话，仓库内的 hooks 等配置会直接生效（§3.1.4 第 6 项）。
 4. **磁盘保护、未保存改动防护与中断删除续跑**：
    - 创建前通过 `URLResourceKey.volumeAvailableCapacityForImportantUsageKey` 检查剩余空间，低于可配置阈值（默认 2 GB）弹窗预警；创建中途失败自动回滚半成品目录并释放锁；
    - 归档/清理前执行预检（未提交修改 + 未跟踪风险文件 + 未 Push 本地 Commit 数），存在脏状态强制二次确认；若 `scripts.archive` 非零退出，默认阻断删除并提示重试或强制清理；
@@ -511,9 +554,10 @@ stateDiagram-v2
 
 AI 编程代理在执行测试或启动开发服务器时，往往会派生多层孙进程（`shepherd` → `claude` → `bash` → `pnpm test` → `vitest`）。若仅终止直接子进程 PID，极易产生占满 CPU 或锁死端口的孤儿进程。
 
-Shepherd 实施 **三层防孤儿保障机制**：
+Shepherd 实施以下防孤儿保障机制（v2 增加第 4 点，并收窄了前三点的覆盖范围表述）：
 1. **强制独立进程组（Process Group Isolation）**：
    - 所有子进程（Agent CLI、`scripts.setup`、`scripts.archive`、终端抽屉 Shell 及按需启用的 ACP 逃生舱进程）统一通过底层 `posix_spawn` 配合 `POSIX_SPAWN_SETPGROUP`（`pgroup = 0`）启动，使其自身 PID 自动成为全新进程组 ID（`PGID == childPID`），所有后代进程默认继承同一 `PGID`。
+   - **v2 更正**：「默认继承」不等于「都在组内」。实测 Claude Code 会把 Bash 工具启动的 shell 放进独立进程组，交互式 shell 的前台作业也自成进程组（`01-orca-audit.md` §7.4）。只向 Agent 的进程组发信号覆盖不到它们。
 2. **两阶段优雅终止（Graceful Escalation）**：
    - 会话关闭或 App 正常退出（`applicationWillTerminate`）时，先发送协议级退出请求（关闭 `stdin`），随即向整个进程组发送 `kill(-pgid, SIGTERM)`；
    - 等待宽限期（会话关闭 2.5s / App 退出 1.2s），通过 `waitpid` 非阻塞轮询确认进程组清空；若仍存活则执行 `kill(-pgid, SIGKILL)` 强制收割。
@@ -521,7 +565,12 @@ Shepherd 实施 **三层防孤儿保障机制**：
    - macOS 不具备 Linux 的 `prctl(PR_SET_PDEATHSIG)`，若 Shepherd 主进程遭遇 `SIGKILL` 或底层 Crash，无法执行 `applicationWillTerminate`。
    - 解决方案：随主 App 内嵌一个极简纯 C/Swift 编译的守护助手 `Contents/Helpers/shepherd-reaper`（体积 < 200 KB，空闲内存 < 2 MB）。
    - 主 App 启动后与 `shepherd-reaper` 建立一对匿名 Pipe：每当主 App 派生/回收一个 `PGID`，便向 Pipe 写入 `ADD <pgid>` / `DEL <pgid>`；`shepherd-reaper` 同时通过 `kqueue`（`EVFILT_PROC` + `NOTE_EXIT` 监听主 App PID 与 Pipe EOF）静默挂起。
-   - 一旦主 App 意外崩溃或被强杀，`shepherd-reaper` 毫秒级唤醒，向所有登记在册的存活 `PGID` 发送 `SIGTERM` → 1s → `SIGKILL`，彻底清空整棵进程树后自行退出（含按需启用的 ACP 逃生舱进程，全程无遗留）。
+   - 一旦主 App 意外崩溃或被强杀，`shepherd-reaper` 毫秒级唤醒，向所有登记在册的存活 `PGID` 发送 `SIGTERM` → 1s → `SIGKILL`，清空已登记的进程组后自行退出（含按需启用的 ACP 备用通道进程）。未登记的后代不在覆盖范围内，因此依赖下面第 4 点。
+4. **后代进程跟踪（v2 新增）**：
+   - 在进程组之外，`ProcessSupervisor` 需要持续跟踪每个 Agent 的后代进程：周期性地、以及在停止前抓取后代快照，把新发现的进程组登记给 `shepherd-reaper`。
+   - 快照以 pid 加启动时间做身份校验，防止 PID 复用后误杀无关进程。
+   - 停止前必须先抓快照。根进程退出后，被 reparent 的后代无法再通过父子关系找到（Orca 的做法，见 `01-orca-audit.md` §7.3）。
+   - 跟踪存在采样间隙，短命进程或在两次采样之间脱离的进程可能漏掉。验收口径要写明这一点，不再使用「全部后代零残留」的表述。
 
 #### 3.3.4 本地 Socket / IPC 安全与权限审批门控
 - **本地 IPC 安全规范**（用于可选终端 Hook 或内部命令通道）：
@@ -529,10 +578,14 @@ Shepherd 实施 **三层防孤儿保障机制**：
   - 服务端接受连接时通过 `getsockopt(..., SOL_LOCAL, LOCAL_PEERCRED, ...)` 校验对端 UID 必须等于当前 `getuid()`；
   - 每次 App 启动在内存生成 256-bit CSPRNG Bearer Token，写入 `0600` 权限的 `runtime.json` 供授权子进程鉴权，退出时销毁。
 - **权限审批门控模型（Approval Gatekeeper）**：
-  - 提供三种清晰可控的 Worktree 级安全档位：
+  - 设计意图是提供三种 Worktree 级安全档位（能否兑现见下方 v2 更正）：
     1. **严格模式（Ask Every Time）**：所有 Shell 命令、文件写入与外部工具均弹窗/内联审批；
     2. **均衡模式（Default — Safe Read Auto）**：只读文件读取、搜索与只读 Git 命令（`git status`/`diff`/`log`）自动放行，所有写文件、Shell 执行、MCP 写操作均需人工确认；
-    3. **Worktree 自治模式（Scoped Autonomous）**：严格限定在当前 Worktree 目录内的常规编辑与测试命令自动放行，但**内置不可绕过的硬护栏（Hard Guardrails）**——任何跨目录路径访问、高危命令模式（如 `rm -rf /`、`git push --force`、修改 `~/.ssh` / `~/.zshrc`、访问钥匙串命令 `security`）仍强制拦截交由人工审批。
+    3. **Worktree 自治模式（Scoped Autonomous）**：严格限定在当前 Worktree 目录内的常规编辑与测试命令自动放行，并对跨目录路径访问与高危命令模式（如 `rm -rf /`、`git push --force`、修改 `~/.ssh` / `~/.zshrc`、访问钥匙串命令 `security`）做尽力而为的拦截提示。
+  - **v2 更正：控制范围以 Agent 实际发来的请求为界。** `ApprovalGatekeeper` 只在 CLI 发来请求后才介入。Claude 的判定顺序是 Hooks → Deny 规则 → Ask 规则 → 权限模式 → Allow 规则 → `canUseTool`，用户已有的允许规则或权限模式会先行决定，宿主未必收到事件；Codex 则由审批策略与沙箱模式决定哪些动作会发起审批。因此上面三档不能按字面承诺，需要做三处调整：
+    1. **档位映射到各 Agent 的原生权限与沙箱模式**。Codex 对应其审批策略与沙箱档位；Claude 对应其原生权限模式，具体映射见 §3.1.4 第 4、5 项。界面只提供经 M0 逐驱动验证能够兑现的档位。
+    2. **撤回「不可绕过的硬护栏」的说法**。按命令字符串匹配高危模式可以被绕过（例如先写脚本再执行），只能作为尽力而为的提示；真正的边界依赖 Agent 自带的沙箱。
+    3. **界面与审计记录如实反映覆盖范围**。未经 Shepherd 的操作不会产生审批记录，档位说明里要写明哪些动作不经过 Shepherd。
   - 所有审批决策均记录到 SQLite `approval_logs` 审计表（时间、Worktree、工具名、参数摘要、决策结果）。
 
 ---
@@ -600,11 +653,15 @@ Shepherd/
 
 | 风险项 | 影响等级 | 缓解措施 |
 | :--- | :---: | :--- |
-| **Claude Code `stream-json` 控制协议非公开稳定契约变动** | 高 | 1) 解析器采用宽容解码（忽略未知字段，保留原始 JSON 兜底显示）；2) 预置 `ACPClientAdapter` 接入开放 `@agentclientprotocol/claude-agent-acp`（按需外部 CLI、绝不随包捆绑）作为零侵入降级开关；3) 建立基于真实抓包回放的协议契约回归测试集。 |
+| **Claude Code `stream-json` 控制协议非公开稳定契约变动** | 高 | 1) 解析器采用宽容解码（忽略未知字段，保留原始 JSON 兜底显示）；2) 备用通道待 §3.1.4 对齐（`claude-agent-acp` 依赖 SDK 与 Node，不能视为零成本降级）；3) 建立基于真实抓包回放的协议契约回归测试集。 |
 | **macOS GUI 环境缺少用户 Shell `PATH` / 环境变量** | 高 | 启动异步探测用户 Login Shell 环境并持久化缓存，同时支持在设置页查看/手动覆写 `git`、`claude`、`codex` 路径。 |
-| **多 Worktree 并发操作触发 `.git/index.lock` 冲突** | 中 | `WorktreeManager` 强制按 `repoCommonDir` 串行队列执行写拓扑操作，并在遇到临时锁时执行带抖动的有限次数重试。 |
-| **App 崩溃遗留高负载子进程（孤儿 `vitest`/`cargo`）** | 中 | 全量独立进程组（`POSIX_SPAWN_SETPGROUP`）+ 内嵌 `shepherd-reaper`（`kqueue` 监控主进程退出即时清场）。 |
+| **多 Worktree 并发操作触发 `.git/index.lock` 冲突** | 中 | `WorktreeManager` 强制按 `repoCommonDir` 串行队列执行写拓扑操作（须为显式异步队列，actor 可重入，见 §3.2.3），并在遇到临时锁时执行带抖动的有限次数重试。 |
+| **App 崩溃遗留高负载子进程（孤儿 `vitest`/`cargo`）** | 中 | 全量独立进程组（`POSIX_SPAWN_SETPGROUP`）+ 内嵌 `shepherd-reaper`（`kqueue` 监控主进程退出即时清场）。v2：Agent 自建的进程组不在原设计覆盖范围内，另需后代进程跟踪（§3.3.3 第 4 点）。 |
 | **超大 Diff（> 5,000 行）导致 UI 卡顿** | 中 | 放弃纯 SwiftUI 列表，采用虚拟化 AppKit `NSTableView` + 按可见区域按需语法高亮 + 单文件超大 Diff 自动折叠阈值（默认 > 1,500 行需点击展开）。 |
+| **审批控制范围小于界面承诺（v2 新增）** | 高 | 档位映射 Agent 原生模式；M0 逐驱动验证哪些动作必经 Shepherd；界面如实标注覆盖范围（§3.3.4）。 |
+| **无头模式跳过工作区信任（v2 新增）** | 高 | 待 §3.1.4 第 6 项对齐；M0 验证 Claude 与 Codex 在各自驱动方式下加载项目级配置的行为。 |
+| **`claude -p` 用量政策变动（v2 新增）** | 高 | 见 `04-roadmap-and-engineering.md` §5 R10；保持终端通道可以升为 Claude 主路径。 |
+| **Chat 长转录渲染性能（v2 新增）** | 中 | M0 Chat 渲染 Spike 选型，不默认采用 SwiftUI 懒加载列表（§2.2）。 |
 
 ---
 

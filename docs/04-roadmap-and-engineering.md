@@ -2,8 +2,9 @@
 
 > **文档角色**：Shepherd 方案计划书 — 工程落地与路线图篇（`docs/04-roadmap-and-engineering.md`）  
 > **关联文档**：上游代码审计 [`docs/01-orca-audit.md`](./01-orca-audit.md) · 系统架构 [`docs/02-architecture.md`](./02-architecture.md) · 产品与 UX 规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md)  
-> **已锁定基线**：**MIT License** · **macOS 15.0+ / 仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · **100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选开放 ACP 逃生舱**（零 Electron、零 Node 24 Sidecar、零闭源商业 SDK）。  
-> **范围说明**：本路线图覆盖 **M0–M4** 完整工程交付（`⌘J` `SwiftTerm` 终端抽屉锁定在 **M3**）；多模型本地路由与额度容灾网关（如 Magpie 类能力）**显式排除在 M0–M4 规划之外**，仅在文末远期演进中说明扩展边界。
+> **已锁定基线**：**MIT License** · **macOS 15.0+ / 仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · **100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱**（零 Electron、零 Node 24 Sidecar、零闭源商业 SDK）。  
+> **范围说明**：本路线图覆盖 **M0–M4** 完整工程交付（`⌘J` `SwiftTerm` 终端抽屉锁定在 **M3**）；多模型本地路由与额度容灾网关（如 Magpie 类能力）**显式排除在 M0–M4 规划之外**，仅在文末远期演进中说明扩展边界。  
+> **修订状态**：评审修订版 v2（2026-11-26）。M0 扩至约 3 周并增加验证项；M1–M4 的周期保留为未验证目标，在 M0 出口用实测校准；风险登记册新增 R10–R14；Claude Code 相关任务待专题对齐（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4）。本轮只修订文档，仓库中尚无代码，下面的目录结构是规划。
 
 ---
 
@@ -45,8 +46,8 @@ Shepherd/
 │   │   ├── Sources/ShepherdCore/
 │   │   │   ├── Models/                      # Repository, Worktree, AgentSession, Turn, TranscriptItem, ApprovalPayload
 │   │   │   ├── Coordinator/                 # SessionCoordinator (Actor), DeltaCoalescer (33ms 节流), WorkspaceCoordinator
-│   │   │   ├── Security/                    # ApprovalGatekeeper (三档策略 + 硬护栏), ScriptTrustGate (SHA-256)
-│   │   │   ├── Process/                     # ProcessSupervisor (POSIX_SPAWN_SETPGROUP), ReaperClient, LoginShellEnvProbe
+│   │   │   ├── Security/                    # ApprovalGatekeeper (档位映射 Agent 原生权限模式), ScriptTrustGate (入口信任, SHA-256)
+│   │   │   ├── Process/                     # ProcessSupervisor (POSIX_SPAWN_SETPGROUP), DescendantTracker (后代快照), ReaperClient, LoginShellEnvProbe
 │   │   │   ├── Environment/                 # ProcessEnvironmentProvider（分层合成 + 敏感值脱敏日志）
 │   │   │   └── Diagnostics/                 # ProtocolRingBuffer (最近 500 帧抓包), OSLog 分类 Logger
 │   │   └── Tests/ShepherdCoreTests/         # 状态机转换、审批策略、33ms 节流合并、环境合成单测
@@ -55,8 +56,8 @@ Shepherd/
 │   │   ├── Sources/ShepherdAgents/
 │   │   │   ├── Protocol/                    # AgentAdapter, AgentEvent, AgentLaunchConfig, AgentCapabilities
 │   │   │   ├── Transport/                   # StdioNDJSONTransport (增量分帧/单行上限/背压/尾帧排空), JsonRpc2Peer
-│   │   │   ├── Codex/                       # CodexAppServerAdapter (initialize/initialized, 4类审批 + 未支持请求拒绝, -32001 退避)
-│   │   │   ├── Claude/                      # ClaudeCodeAdapter (直连 stream-json + --permission-prompt-tool stdio, 零闭源 SDK)
+│   │   │   ├── Codex/                       # CodexAppServerAdapter (initialize/initialized, 4类交互各自回包 + 未支持请求拒绝, -32001 退避; 类型由 Schema 生成)
+│   │   │   ├── Claude/                      # ClaudeCodeAdapter (直连 stream-json + --permission-prompt-tool stdio, 零闭源 SDK 捆绑; 设计待专题对齐)
 │   │   │   └── ACP/                         # ACPClientAdapter (JSON-RPC 2.0, $/cancel_request) + DialectsRegistry (opencode/gemini/claude-agent-acp...)
 │   │   └── Tests/ShepherdAgentsTests/
 │   │       ├── Fixtures/                    # Golden-file 脱敏真实 NDJSON 流量样本（Codex / Claude / ACP）
@@ -64,9 +65,9 @@ Shepherd/
 │   │
 │   ├── ShepherdGit/                         # 【Git】Git Worktree 管理器、配置兼容解析与增量 Diff 引擎（纯 Swift 6）
 │   │   ├── Sources/ShepherdGit/
-│   │   │   ├── Worktree/                    # WorktreeManager, RepoLockActor (Per-Repo 串行写锁), OrphanReconciler
+│   │   │   ├── Worktree/                    # WorktreeManager, RepoLockActor (Per-Repo 显式异步串行队列), OrphanReconciler
 │   │   │   ├── Config/                      # WorkspaceConfigLoader (shepherd.yaml 优先 + orca.yaml 嵌套 Schema 兼容, Yams)
-│   │   │   ├── Safety/                      # PathTraversalGuard, GitCheckIgnoreValidator, DiskSpaceGuard
+│   │   │   ├── Safety/                      # PathTraversalGuard, GitCheckIgnoreValidator, SymlinkExcludeWriter (info/exclude), DiskSpaceGuard
 │   │   │   ├── Diff/                        # GitDiffEngine (porcelain=v2 -z, Unified/Split Hunk 解析, Stage/Discard Hunk)
 │   │   │   ├── Watcher/                     # FSEventsWatcher (过滤 .git/node_modules/.build + 300ms 滑动防抖)
 │   │   │   └── PullRequest/                 # GitHubPRClient (调用本机 gh pr create / gh pr view)
@@ -94,7 +95,7 @@ Shepherd/
 │       │   ├── State/                       # WorkspaceStore (@Observable @MainActor), SessionViewModel, CommandPaletteState
 │       │   ├── Layout/                      # MainSplitViewController (NSSplitViewController 桥接与宽度记忆)
 │       │   ├── Sidebar/                     # RepoWorktreeSidebar (NeedMe 置顶筛选、五态指示点、右键菜单)
-│       │   ├── Chat/                        # NativeChatView (增量尾块、折叠 Thinking、ToolCard 归并、内联审批条、Follow-up Queue)
+│       │   ├── Chat/                        # NativeChatView (增量尾块、折叠 Thinking、ToolCard 归并、内联审批条、问答卡/表单卡、Follow-up Queue; 列表方案待 M0 Spike)
 │       │   ├── Diff/                        # DiffInspectorView (虚拟化 AppKit NSTableView / TextKit 2、Hunk 操作、PR 面板)
 │       │   ├── Modals/                      # NewWorktreeSheet (⌘N), ScriptTrustSheet (SHA-256 审查), CommandPalette (⌘K)
 │       │   ├── MenuBar/                     # MenuBarPopoverView (状态徽章 + 快捷导航，禁止盲批高危命令)
@@ -107,7 +108,7 @@ Shepherd/
 ├── Tests/                                   # 【Tests】跨模块端到端集成测试、Fake CLI Harness 与性能基准
 │   ├── FakeAgentHarness/                    # 模拟 codex / claude / acp 的双向 stdio 测试替身可执行工具
 │   ├── EndToEndTests/                       # 多 Worktree 并发 + 审批 + Diff + 零污染审计集成测试
-│   ├── ReaperTests/                         # SIGKILL 主进程后验证 3 层孙进程零残留的专项测试
+│   ├── ReaperTests/                         # SIGKILL 主进程后的清理测试（已登记进程组 / 另建进程组的后代 / 终端作业 三个场景）
 │   └── PerformanceBenchmarks/               # 冷启动、5 并发内存曲线、50 文件 2000 行 Diff 首帧基准套件
 │
 ├── Scripts/                                 # 构建、签名、公证、合规检查自动化脚本
@@ -156,6 +157,7 @@ flowchart BT
 | **`Sparkle` (v2.x)** | `ShepherdApp` | MIT | M4 | macOS Direct Distribution 工业标准自动更新框架（EdDSA 签名） |
 | **`SwiftTerm`** | `ShepherdTerminal` | MIT | M3 (P1) | 纯 Swift 终端引擎、零 Zig 工具链、包体增量 < 1 MB；通过抽象协议保留 P2 升 `libghostty` 路径 |
 | **轻量语法高亮（如 `swift-tree-sitter` 或增量 Lexer）** | `ShepherdUI` | MIT | M2 | 仅对 Diff 可见窗口异步高亮，严格控制包体增量 ≤ 3 MB |
+| **Markdown 解析与渲染（v2 新增 · 待选型）** | `ShepherdUI` | 随选型确定 | M0 选型，M1 引入 | 原清单漏了这一项。Native Chat 需要流式 CommonMark / GFM 渲染（代码块、表格、增量解析），在 M0 的 Chat 渲染 Spike 中与列表方案一并选型；许可证随选型结果更新到 `THIRD_PARTY_NOTICES.md` |
 
 > **零引入红线**：全仓严禁引入 Electron、Node.js 运行时、`@anthropic-ai/claude-agent-sdk`（商业条款非开源）、Geist SIL OFL 字体（全程使用系统原生 SF Pro / SF Mono）及任何遥测/云端追踪 SDK。
 
@@ -168,7 +170,7 @@ flowchart BT
 - **最低支持系统**：**macOS 15.0 (Sequoia)**。
   - **决策依据**：完整原生支持稳定的 `@Observable`、`MenuBarExtra` 窗口增强、成熟版 TextKit 2（`NSTextLayoutManager` 规避 macOS 13/14 早期布局崩溃 Bug）、以及 Xcode 16+ / Swift 6 工具链；全面覆盖主力 Apple Silicon 开发者机型。
 - **目标架构（已锁定）**：**仅 Apple Silicon (`arm64`)**，明确不支持 Intel Mac，不构建 Universal Binary。
-  - **工程收益**：单一 `arm64` 构建、签名与分发产线可将签名 `.dmg` 体积稳定控制在 **12–18 MB**（远低于 ≤ 25 MB 红线），省去交叉编译校验矩阵，并大幅简化 `ShepherdReaper`、依赖库及 Sparkle 2 `appcast.xml` 维护。
+  - **工程收益**：单一 `arm64` 构建、签名与分发产线预计可将签名 `.dmg` 体积控制在 **12–18 MB**（估算，未实测；低于 ≤ 25 MB 红线），省去交叉编译校验矩阵，并大幅简化 `ShepherdReaper`、依赖库及 Sparkle 2 `appcast.xml` 维护。
 - **开源协议（已锁定）**：**MIT License**（根目录 `LICENSE` + `THIRD_PARTY_NOTICES.md` + `About -> Licenses` 同步维护）。
 - **Bundle ID 与签名节奏（已锁定）**：
   - **开发期（M0–M1）**：采用临时占位 Bundle ID（如 `io.github.julytang.shepherd`）+ 本地 ad-hoc 签名进行高速迭代，不阻塞早期核心功能开发；
@@ -206,42 +208,57 @@ flowchart BT
 | 工作流 | 触发条件 | 运行环境 | 关键检查项 |
 | :--- | :--- | :--- | :--- |
 | **`ci.yml`（PR 门禁）** | Pull Request / Push `main` | `macos-15` (Apple Silicon) | 1. `Scripts/check-compliance.sh`（合规红线：禁闭源 SDK、禁 `ORCA_` 标识、校验 `Entitlements` 白名单）；<br>2. `swift test --parallel`（覆盖 Core / Agents Golden-file / Git 临时仓 / Storage WAL）；<br>3. `ShepherdReaper` 独立构建 + 进程组回收测试；<br>4. `xcodebuild build` 验证主 App 编译零警告。 |
-| **`nightly.yml`（夜间回归）** | 每日定时 | `macos-15` | 1. 运行 `EndToEndTests`（FakeAgentHarness 5 路并发 5 分钟压测）；<br>2. 运行 `PerformanceBenchmarks` 追踪冷启动、内存与大 Diff 回归趋势。 |
+| **`nightly.yml`（夜间回归）** | 每日定时 | `macos-15` | 1. 运行 `EndToEndTests`（FakeAgentHarness 5 路并发 5 分钟压测）；<br>2. 运行 `PerformanceBenchmarks` 追踪冷启动、内存与大 Diff 回归趋势；<br>3. 用当前 `codex app-server generate-json-schema` 的输出与仓库内快照比对，发现协议漂移即告警（v2 新增）。 |
 | **`release.yml`（版本发布）** | 推送 `v*.*.*` Tag | `macos-15` | 执行完整签名 → Notarization → Stapling → Sparkle `appcast.xml` 更新 → 创建 GitHub Release 并附校验和。 |
 
 ---
 
 ## 3. 分阶段里程碑计划（M0 → M4）
 
-按 **2 名资深 Swift / macOS 工程师** 并行节奏估算，完整周期约 **9.5 周**；其中 **M0 + M1 + M2（6.5 周）即可交付可日常主力使用的 MVP 内测版本**。
+按 **2 名资深 Swift / macOS 工程师** 并行节奏估算（人力是假设，尚未落实到人），完整周期目标约 **11 周**；其中 **M0 + M1 + M2（目标 8 周）交付可日常主力使用的 MVP 内测版本**。
+
+> **v2 排期口径**：
+>
+> - **M0 由 1.5 周扩到约 3 周**，原因是新增了下文的五项验证。
+> - **M1–M4 的周期（3 / 2 / 2 / 1 周）沿用原估**，属于未验证目标，在 M0 出口用实测工作量校准后再对外承诺。评审方的独立估算明显更长（见 §5 R12）。
+> - **预先商定的削减顺序**：若校准后 MVP 超出目标，依次把以下范围移出首版：① ACP 适配器的最小闭环（MVP → P1）；② Diff 的 Split 视图；③ 逐 Hunk 的 Stage / Discard；④ AI 草拟 Commit / PR 文案。
 
 ```mermaid
 flowchart LR
-    M0["M0: 协议 Spike & 地基 (1.5周)"] --> M1["M1: MVP 多Agent+审批闭环 (3周)"]
+    M0["M0: 验证 Spike & 地基 (约3周)"] --> M1["M1: MVP 多Agent+审批闭环 (3周)"]
     M1 --> M2["M2: 原生 Diff/PR & 性能优化 (2周)"]
     M2 --> M3["M3: P1 终端抽屉 & ACP 扩展 (2周)"]
     M3 --> M4["M4: 签名公证 & 公测分发 (1周)"]
 ```
 
-### M0：高风险协议验证 Spike 与工程地基（1.5 周）
-- **核心目标**：在投入大规模 UI 开发前，用最小命令行 Harness 实机验证全部 4 条最高风险底层链路，彻底消除技术不确定性。
+### M0：高风险验证 Spike 与工程地基（约 3 周，v2 由 1.5 周扩展）
+- **核心目标**：在投入大规模 UI 开发前，用最小 Harness 实机验证最高风险的底层链路，并用一次真实的双 Agent 任务决定是否进入 M1。
 - **关键任务拆解**：
   1. 搭建多模块 SwiftPM 仓库骨架、`ci.yml` 与合规检查脚本；
-  2. **Codex Spike**：实机跑通 `codex app-server --listen stdio://` 的 `initialize` → `initialized` → `thread/start` → `turn/start` → 4 类审批回复与未知 Server Request 显式拒绝；
-  3. **Claude Spike**：实机验证 `claude --print --input-format stream-json --output-format stream-json --permission-prompt-tool stdio` 双向对话、审批拦截、`--resume` 续聊，并录制真实 Golden-file 样本；同步验证开放 `@agentclientprotocol/claude-agent-acp` 降级通道；
-  4. **Git & Reaper Spike**：实现 `WorktreeManager` + `RepoLockActor` + `shepherd.yaml`/`orca.yaml` 解析（含 `git check-ignore` & SHA-256 哈希计算）+ `ShepherdReaper`（`kqueue` 孤儿进程清理）。
+  2. **Codex Spike**：实机跑通 `codex app-server --listen stdio://` 的 `initialize` → `initialized` → `thread/start` → `turn/start`；4 类需要用户参与的请求分别验证各自的回包（命令与文件审批回 `decision`，用户问答回 `answers`，MCP 表单回 `action` 加 `content`）；未知 Server Request 显式拒绝；用 `codex app-server generate-json-schema` 生成协议类型并存为快照；
+  3. **Claude Spike（范围待专题对齐，见 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4）**：实机验证 `claude --print --input-format stream-json --output-format stream-json --permission-prompt-tool stdio` 双向对话、审批拦截、会话续聊，并录制真实 Golden-file 样本；实现依据改为官方 Python SDK 源码；把一个已运行的真实会话从直连切到 `@agentclientprotocol/claude-agent-acp`，记录哪些状态能续用、用户需要做什么；
+  4. **Git & Reaper Spike**：实现 `WorktreeManager` + `RepoLockActor`（显式异步串行队列）+ `shepherd.yaml`/`orca.yaml` 解析（含 `git check-ignore` 与命令文本 SHA-256 哈希）+ 软链后写 `info/exclude` + `ShepherdReaper`（`kqueue` 孤儿进程清理）+ 后代进程跟踪；
+  5. **权限必经性验证（v2 新增）**：逐个驱动验证哪些动作一定会经过 Shepherd、哪些会被 Agent 按自身配置直接放行，据此确定界面能提供的权限档位；
+  6. **真实 Agent 进程清理验证（v2 新增）**：让 Claude 与 Codex 各自启动一个长时间运行的命令，再对宿主发 `kill -9`，确认这些自成进程组的后代被清理；
+  7. **无头模式信任验证（v2 新增）**：在带有项目级 hooks 与 MCP 配置的测试仓库里，确认 Claude 与 Codex 在各自驱动方式下会加载并执行什么，据此决定 Shepherd 是否需要自己的仓库信任门；
+  8. **Chat 渲染 Spike（v2 新增）**：用 200+ 条消息的长转录加流式 Markdown，对比 SwiftUI 懒加载列表与 AppKit 虚拟化列表，同时完成 Markdown 引擎选型；
+  9. **用量与成本实测（v2 新增）**：同一任务分别用 Native Chat 路径与交互式 TUI 执行，记录订阅额度消耗，替换掉无出处的「1.8×–3×」说法。
 - **退出验收门禁（Go/No-Go）**：
-  - [ ] Codex 与 Claude 双向审批实机连续跑通 20 轮无挂起，Golden-file 样本入库；
-  - [ ] 并发 5 路 `git worktree add` 零 `index.lock` 失败；
-  - [ ] 对宿主测试进程发 `kill -9` 后 2 秒内 3 层孙进程 100% 清空；
-  - [ ] **若 Claude `stream-json` 实测发现不可控协议缺陷，即刻在 M0 结束前决定切换默认驱动至开放 ACP 适配层**。
+  - [ ] **真实双 Agent 任务跑通（v2 新增 · 首要门禁）**：同一仓库开两个 Worktree，Claude 与 Codex 各跑一个任务；用户在 IDE 里工作，收到通知后能回到正确会话，完成一次审批和一次作答，再审 Diff、提交其中一条分支，并保住另一条分支尚未提交的改动。M0 阶段可以用命令行 Harness 加最简通知完成，不要求正式 UI；
+  - [ ] Codex 与 Claude 实机连续跑通 20 轮无挂起，其中权限确认、问题作答、表单填写三类交互分别覆盖，Golden-file 样本入库；
+  - [ ] 并发 5 路 `git worktree add` 零锁冲突失败；软链建立后 `git status` 干净；
+  - [ ] 对宿主测试进程发 `kill -9` 后 2 秒内，已登记的进程组全部清空；真实 Agent 启动的长时间命令同样被清理，未覆盖的情形写入报告；
+  - [ ] 权限档位清单定稿：每个档位都有逐驱动的验证记录，并写明哪些操作不经过 Shepherd；
+  - [ ] Chat 渲染方案与 Markdown 引擎选型定稿；
+  - [ ] Claude 接入的默认驱动与备用路径排序定稿（专题对齐结论加本阶段实测）；
+  - [ ] **用 M0 的实测工作量校准 M1–M4 排期**，必要时按 §3 开头的顺序削减 MVP 范围。
 
-### M1：MVP 核心闭环 — 多 Worktree + Native Chat + 审批通知（3 周）
+### M1：MVP 核心闭环 — 多 Worktree + Native Chat + 审批通知（目标 3 周，待 M0 校准）
 - **核心目标**：打通「创建 Worktree → 并发运行 Claude & Codex → 监控与审批 → 外部 IDE 打开 → 归档清理」完整端到端可用链路。
 - **关键任务拆解**：
-  1. **Storage & Core**：落地 `ShepherdStorage`（GRDB WAL + 全部核心表 + `trusted_hook_hashes`）、`SessionCoordinator`（Per-Session Actor + 33ms 节流合并）、`ApprovalGatekeeper`（三档安全策略 + 硬护栏）、`LoginShellEnvProbe`；
+  1. **Storage & Core**：落地 `ShepherdStorage`（GRDB WAL + 全部核心表 + `trusted_hook_hashes`）、`SessionCoordinator`（Per-Session Actor + 33ms 节流合并）、`ApprovalGatekeeper`（档位映射 Agent 原生权限模式，只提供 M0 验证过能兑现的档位）、`LoginShellEnvProbe`；
   2. **Agents 正式化**：补齐 `CodexAppServerAdapter`（含 `-32001` 退避）、`ClaudeCodeAdapter`（含 `rate_limit_event` 限流提示）与 `ACPClientAdapter` 最小闭环；
-  3. **原生双栏 UI**：`MainSplitViewController`、左侧 Repo/Worktree 状态树（五态指示点 + `NeedMe` 置顶筛选）、中间 Native Chat（增量尾块、可折叠 Thinking、只读 Tool 归并卡、内联审批条、Follow-up 消息队列）、`⌘N` 新建面板、SHA-256 脚本信任审查弹窗；
+  3. **原生双栏 UI**：`MainSplitViewController`、左侧 Repo/Worktree 状态树（五态指示点 + `NeedMe` 置顶筛选）、中间 Native Chat（增量尾块、可折叠 Thinking、只读 Tool 归并卡、内联审批条、问答卡与表单卡、Follow-up 消息队列）、`⌘N` 新建面板、SHA-256 脚本信任审查弹窗；
   4. **macOS 原生联动**：`MenuBarExtra` 状态徽章与 Popover、`UNUserNotificationCenter` 降噪深链接、一键 `⌘O` 外部 IDE 跳转与 `⌘⇧T` 系统终端跳转、归档脏检查与中断删除续跑。
 - **退出验收门禁（对齐 `03-product-and-ux.md` §5）**：
   - [ ] 同仓并发跑通 1 个 Claude + 1 个 Codex Worktree，零文件冲突、零审批串台；
@@ -249,7 +266,7 @@ flowchart LR
   - [ ] 实机冷启动 TTI **≤ 400 ms**，空闲物理内存 **≤ 80 MB**，审批通知延迟 **≤ 300 ms**；
   - [ ] 兼容真实 `orca.yaml`（`worktree.sharedDirectories` + `scripts.setup`）并触发 SHA-256 首次信任弹窗。
 
-### M2：原生 Diff Inspector、PR 闭环与性能打磨（2 周）
+### M2：原生 Diff Inspector、PR 闭环与性能打磨（目标 2 周，待 M0 校准）
 - **核心目标**：补齐「审查代码 → 局部修正 → Commit & Create PR」闭环，将高并发渲染与大 Diff 体验打磨至原生标杆级。
 - **关键任务拆解**：
   1. **高性能 Diff Inspector（`⌘⇧D`）**：基于 AppKit 虚拟化 `NSTableView`（或 TextKit 2）实现文件树、Unified / Split 视图、双基线切换（`Uncommitted` vs `Branch vs Base`）、逐文件/逐 Hunk `Reviewed` / `Stage` / `Discard`、点击行号精准跳外部 IDE 对应行；
@@ -261,23 +278,26 @@ flowchart LR
   - [ ] 5 路高吞吐模拟流式输出持续 15 分钟：主线程稳定 **60fps（ProMotion 120fps）**，物理内存 **≤ 220 MB** 且关闭会话后正常回落；
   - [ ] 全键盘端到端验收通过（不碰鼠标走完 `⌘N → ⌘⇧A → ⌘↩ → ⌘⇧D → ⌘O → ⌘⇧P`）。
 
-### M3：P1 可选极简终端抽屉（已锁定 M3）、ACP 扩展与体验进阶（2 周）
+### M3：P1 可选极简终端抽屉（已锁定 M3）、ACP 扩展与体验进阶（目标 2 周，待 M0 校准）
+
+> **v2 说明**：终端抽屉是否仍放在 M3，取决于 Claude 接入专题的结论。若终端通道需要升为 Claude 的主路径或第一备用路径（§5 R10），这部分要提前。
 - **核心目标**：落地锁定于本阶段的 `⌘J` 极简终端抽屉（`SwiftTerm`，M0–M2 保持专注 Native Chat + 原生 Diff/PR 闭环）与高频进阶能力，拓宽长尾 Agent 支持面。
 - **关键任务拆解**：
-  1. **`ShepherdTerminal` 抽屉（`⌘J` · 锁定 M3）**：基于 `SwiftTerm` + 持久化 `NSView` 容器池（规避 SwiftUI 条件渲染销毁 PTY）；顶部支持「Resume in Terminal」（一键以同 Session ID 拉起原版交互 CLI，带 Native Chat ↔ TUI 会话互斥锁）；
+  1. **`ShepherdTerminal` 抽屉（`⌘J` · 锁定 M3）**：基于 `SwiftTerm` + 持久化 `NSView` 容器池（规避 SwiftUI 条件渲染销毁 PTY）；顶部支持「Resume in Terminal」（一键以同 Session ID 拉起原版交互 CLI，带 Native Chat ↔ TUI 会话互斥锁），返回 Native Chat 时回填或明确标注终端中产生的轮次（v2 新增）；
   2. **轻量终端状态回传**：默认开启零侵入 `OSC 7501` 解析同步侧栏状态；提供可选 Opt-in 开关启用 macOS POSIX Shell + `curl` 本地 Hook；
   3. **ACP 方言扩展与效率功能**：扩充 `DialectsRegistry` 验证 5–8 个主流 ACP CLI（如 `opencode`、`gemini`、`goose`、`cursor`、`claude-agent-acp`）；开放 GRDB FTS5 跨会话全文搜索；发布面向人类开发者的极简 `shepherd` CLI（`shepherd open` / `shepherd new`）；按需评估并合入可选 `CodexSharedServerPool`。
 - **退出验收门禁**：
   - [ ] 连续折叠/展开终端抽屉 50 次无 PTY 断连或字体重绘异常；
-  - [ ] 终端内执行 `/usage` / `/btw` 后退出可无缝回到 Native Chat，无会话文件损坏；
+  - [ ] 终端内执行 `/usage` / `/btw` 后退出可回到 Native Chat，无会话文件损坏，终端中产生的轮次在 Native Chat 中可见或被明确标注；
+  - [ ] 终端抽屉内启动的前台作业在宿主 `kill -9` 后被清理（v2 新增）；
   - [ ] 合入 `SwiftTerm` 后单一 `arm64` 签名 `.dmg` 体积仍 **≤ 25 MB**。
 
-### M4：正式标识定稿、签名公证与 Public Beta 发布（1 周）
+### M4：正式标识定稿、签名公证与 Public Beta 发布（目标 1 周，待 M0 校准）
 - **核心目标**：定稿正式 Bundle ID 与签名主体，打通单一 `arm64` 全自动 Direct Distribution 生产发版链路，完成 MIT 合规审查与首批开发者灰度验证。
 - **关键任务拆解**：
   1. **正式身份与签名定稿**：将 M0–M1 临时占位 Bundle ID（如 `io.github.julytang.shepherd`）与本地 ad-hoc 签名替换为最终定稿的正式 Bundle ID 与 Developer ID Application 签名主体；
   2. 跑通单一 `arm64` `release.yml`（由内向外 Developer ID 签名 + `.app`/`.dmg` 双载体 `notarytool` 公证装订 + Sparkle 2 EdDSA `appcast.xml` + Homebrew Cask）；
-  3. 合规终检：审阅 MIT `LICENSE`、`THIRD_PARTY_NOTICES.md`、`About -> Licenses` 界面、零 `ORCA_*` / 零遥测网络抓包确认；
+  3. 合规终检：审阅 MIT `LICENSE`、`THIRD_PARTY_NOTICES.md`、`About -> Licenses` 界面、零 `ORCA_*` / 零遥测网络抓包确认；对照 Anthropic 合规页确认各条 Claude 路径在订阅登录下的使用边界，并复查 `claude -p` 用量政策是否有变（v2 新增，见 §5 R2、R10）；
   4. 灰度发布：面向 20–50 名高频双持 Claude Code + Codex 的 Apple Silicon macOS 开发者启动 Public Beta，建立脱敏诊断包一键上报通道。
 - **退出验收门禁**：
   - [ ] 全新无 Xcode 的 macOS 15 干净环境双击 `.dmg` 安装，通过 Gatekeeper 零警告启动；
@@ -288,14 +308,18 @@ flowchart LR
 
 ## 4. 测试与验证体系
 
-鉴于多 Agent 协议依赖外部付费 CLI 与真实文件系统副作用，Shepherd 建立 **五层自动化测试金字塔**，使 90% 的质量保障在**无真实 API Key、无外网的 GitHub Actions `macos-15` 上可确定性运行**：
+鉴于多 Agent 协议依赖外部付费 CLI 与真实文件系统副作用，Shepherd 建立 **五层自动化测试金字塔**，使 90% 的质量保障在**无真实 API Key、无外网的 GitHub Actions `macos-15` 上可确定性运行**。
+
+> **v2 补充**：Fake Harness 与 Golden-file 只能证明 Shepherd 与录制时的协议一致，证明不了与当前上游 CLI 一致。R1 所说的每周实机 Smoke Test 需要真实账号与额度，无法在无密钥的 CI 上运行，要单独安排执行人和预算。
+
+五层如下：
 
 | 测试层级 | 所属 Target | 核心机制 | 覆盖的典型故障场景 |
 | :--- | :--- | :--- | :--- |
 | **L1：协议 Golden-File 回放测试** | `ShepherdAgentsTests` | 将 M0 实机录制的脱敏 NDJSON 流量（Codex / Claude / ACP）作为只读 Fixture，按随机字节切片（模拟 TCP/Pipe 半包、粘包）喂入 `StdioNDJSONTransport` 与解码器 | 跨行截断、非 JSON 噪声日志混入、`codex` `-32001` 过载退避、未知 Server Request 显式拒绝、Claude `rate_limit_event` 识别、字段新增宽容解码 |
-| **L2：Fake CLI Harness 契约测试** | `FakeAgentHarness` + `EndToEndTests` | 独立编译的 Swift 命令行测试替身，通过启动参数扮演 Codex / Claude / ACP，可脚本化控制吐字速率（如 500 tokens/s）、触发审批请求、拒绝后改写行为、模拟 `SIGSEGV` 崩溃 | 5 路并发背压节流（验证 MainActor 更新率 ≤ 30Hz）、审批 Allow/Deny 闭环、Follow-up 消息排队、Turn 中断（`⌘.`）与 `--resume` 重连 |
-| **L3：真实 `git worktree` 集成测试** | `ShepherdGitTests` | 在 `NSTemporaryDirectory()` 初始化真实裸仓 + 本地克隆仓执行真实 `git` 命令 | 并发 5 路 `worktree add` 无 `index.lock` 冲突；`shepherd.yaml` 覆盖 `orca.yaml` 优先级；`worktree.sharedDirectories` 拒绝未忽略路径（`git check-ignore`）与 `../` 路径穿越；SHA-256 哈希变更拦截；中断删除后重启续跑 |
-| **L4：孤儿进程 Reaper 破坏性测试** | `ReaperTests` | 拉起受测宿主子进程，由其通过 `ProcessSupervisor` 启动含 3 层进程树（含捕获并忽略 `SIGTERM` 的顽固孙进程），随后直接向宿主发 **`kill -9` (`SIGKILL`)** | 断言 2 秒内所有登记的 PGID 及全部 3 层孙进程均返回 `ESRCH`（彻底清空），验证 `shepherd-reaper` `kqueue` 兜底可靠性 |
+| **L2：Fake CLI Harness 契约测试** | `FakeAgentHarness` + `EndToEndTests` | 独立编译的 Swift 命令行测试替身，通过启动参数扮演 Codex / Claude / ACP，可脚本化控制吐字速率（如 500 tokens/s）、触发审批请求、拒绝后改写行为、模拟 `SIGSEGV` 崩溃 | 5 路并发背压节流（验证 MainActor 更新率 ≤ 30Hz）、权限确认 / 问题作答 / 表单填写三类交互闭环、Follow-up 消息排队、Turn 中断（`⌘.`）与 `--resume` 重连 |
+| **L3：真实 `git worktree` 集成测试** | `ShepherdGitTests` | 在 `NSTemporaryDirectory()` 初始化真实裸仓 + 本地克隆仓执行真实 `git` 命令 | 并发 5 路 `worktree add` 无 `index.lock` 冲突；`shepherd.yaml` 覆盖 `orca.yaml` 优先级；`worktree.sharedDirectories` 拒绝未忽略路径（`git check-ignore`）与 `../` 路径穿越；命令文本 SHA-256 哈希变更拦截；软链建立后 `git status` 不出现软链本身；中断删除后重启续跑 |
+| **L4：孤儿进程 Reaper 破坏性测试** | `ReaperTests` | 拉起受测宿主子进程，由其通过 `ProcessSupervisor` 启动含 3 层进程树（含捕获并忽略 `SIGTERM` 的顽固孙进程），随后直接向宿主发 **`kill -9` (`SIGKILL`)**。**v2 补充两个场景**：进程树中加入主动另建进程组的后代（模拟 Agent 工具命令），以及经 PTY 启动的交互式 shell 前台作业（M3 起） | 断言 2 秒内所有登记的 PGID 及同组的 3 层孙进程均返回 `ESRCH`；另建进程组的后代经后代跟踪登记后同样被清理。同组进程清空不能证明真实 Agent 场景被覆盖，所以另设使用真实 CLI 的夜间或手动验证 |
 | **L5：性能基准与零污染审计** | `PerformanceBenchmarks` | 自动化 `XCTMetric` 采集 + 沙盒临时 `HOME` 文件系统快照 Diff | 验证冷启动 ≤ 400ms、空闲内存 ≤ 80 MB、5 并发 15 分钟内存 ≤ 220 MB 且无持续增长、50 文件/2000 行 Diff 首帧 ≤ 150ms；断言运行全流程后 `~/.claude`、`~/.codex` 与目标仓库零未声明写入 |
 
 ---
@@ -304,15 +328,20 @@ flowchart LR
 
 | 编号 | 风险项 | 概率 | 影响 | 早期监测信号 | 预防措施与缓解预案 |
 | :---: | :--- | :---: | :---: | :--- | :--- |
-| **R1** | **Claude Code `stream-json` 底层控制协议漂移** | 高 | 高 | M0/每周定时跑实机 Smoke Test 失败或解码出现未知控制帧 | 1) 解码器强制宽容解析（忽略未知字段并保留原始帧）；2) 维护 Golden-file 版本样本库；3) **应急预案**：设置页内置开关可 1 天内切至 `ACPClientAdapter` 驱动开放 `@agentclientprotocol/claude-agent-acp`。 |
-| **R2** | **Anthropic Commercial Terms of Service / SDK 合规边界** | 中 | 高 | 依赖审计发现引入闭源 SDK 或改写官方入口点导致条款争议 | 1) 坚决不捆绑 `@anthropic-ai/claude-agent-sdk`；2) CI 脚本 `check-compliance.sh` 锁死零闭源依赖与零 `ORCA_*`/`CLAUDE_CODE_ENTRYPOINT=orca` 注入；3) 严格定位为纯本地 BYOA 编排器。 |
-| **R3** | **Claude 订阅窗口额度消耗差异与短时限流（429）** | 高 | 中 | 用户反馈 Native Chat 5 小时窗口消耗快于终端 TUI 或频繁触发限流 | 1) 精确解析 `rate_limit_event` 并在 UI 清晰提示冷却时间与消耗估算；2) M1 起提供 `⌘⇧T` 系统终端逃生舱、M3 提供 `⌘J` 抽屉内一键 `claude --resume` 零阻力切回原版交互 TUI。 |
+| **R1** | **Claude Code `stream-json` 底层控制协议漂移** | 高 | 高 | M0/每周定时跑实机 Smoke Test 失败或解码出现未知控制帧 | 1) 解码器强制宽容解析（忽略未知字段并保留原始帧）；2) 维护 Golden-file 版本样本库；3) **备用通道**：排序待专题对齐（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4）；`claude-agent-acp` 依赖 SDK 与 Node ≥ 22，切换后的会话续用未经实测，原「1 天内切换」的说法撤回；4) 实现依据改为官方 Python SDK（MIT）。 |
+| **R2** | **Anthropic Commercial Terms of Service / SDK 合规边界** | 中 | 高 | 依赖审计发现引入闭源 SDK 或改写官方入口点导致条款争议 | 1) 坚决不捆绑 `@anthropic-ai/claude-agent-sdk`；2) CI 脚本 `check-compliance.sh` 锁死零闭源依赖与零 `ORCA_*`/`CLAUDE_CODE_ENTRYPOINT=orca` 注入；3) 严格定位为纯本地 BYOA 编排器；4) **v2 拆分**：「不捆绑 SDK」只解决许可问题，不等于订阅凭据的使用合规。按 Anthropic 合规页的表述，用户用自己的订阅登录未修改的 Claude Code 二进制不受限制，而基于 Agent SDK 的产品应使用 API Key。因此直连本机 CLI 是较稳的路径，依赖 SDK 的 ACP 适配器在订阅登录下的合规性需在公测前确认（[`docs/01-orca-audit.md`](./01-orca-audit.md) §7.5）。 |
+| **R3** | **Claude 订阅窗口额度消耗差异与短时限流（429）** | 高 | 中 | 用户反馈 Native Chat 5 小时窗口消耗快于终端 TUI 或频繁触发限流 | 1) 精确解析 `rate_limit_event` 并在 UI 清晰提示冷却时间与消耗估算；2) M1 起提供 `⌘⇧T` 系统终端逃生舱、M3 提供 `⌘J` 抽屉内一键 `claude --resume` 零阻力切回原版交互 TUI；3) **v2**：消耗倍率在 M0 自行实测，不再引用无出处的社区数字；政策层面的风险单列为 R10。 |
 | **R4** | **Codex `app-server` 未支持 Server Request 导致会话永久挂起** | 中 | 高 | 实测某版本 Codex 发出新类型反向请求后 Turn 卡死无超时 | 1) 借鉴 Orca 实证经验，在 `CodexAppServerAdapter` 实现统一分发默认分支——任何未识别 Server Request 立即返回标准 JSON-RPC Error/拒绝响应；2) 为所有挂起请求加超时告警。 |
-| **R5** | **多 Worktree 并发操作触发 `.git/index.lock` 冲突或误删脏代码** | 中 | 高 | 并发新建/清理任务报错 `Unable to create index.lock` | 1) `RepoLockActor` 按 `repoCommonDir` 串行化所有 Git 拓扑写操作 + 有限抖动重试；2) 归档前强制脏检查（未提交 + 未跟踪 + 未 Push Commit），`scripts.archive` 失败默认阻断删除。 |
-| **R6** | **恶意仓库 `shepherd.yaml` / `orca.yaml` 脚本执行与软链越界** | 低 | 极高 | 打开不信任第三方开源仓库时自动执行任意 Shell 命令或篡改源码 | 1) **SHA-256 脚本内容哈希信任门控**（未授权绝不执行，内容一改即重新弹窗审查）；2) 软链强制双重校验：`git check-ignore` + 规范路径穿越防护。 |
+| **R5** | **多 Worktree 并发操作触发 `.git/index.lock` 冲突或误删脏代码** | 中 | 高 | 并发新建/清理任务报错 `Unable to create index.lock` | 1) `RepoLockActor` 按 `repoCommonDir` 串行化所有 Git 拓扑写操作（须为显式异步队列，actor 可重入）+ 有限抖动重试；2) 归档前强制脏检查（未提交 + 未跟踪 + 未 Push Commit），`scripts.archive` 失败默认阻断删除。 |
+| **R6** | **恶意仓库 `shepherd.yaml` / `orca.yaml` 脚本执行与软链越界** | 低 | 极高 | 打开不信任第三方开源仓库时自动执行任意 Shell 命令或篡改源码 | 1) **命令文本 SHA-256 信任门控**（未授权不执行，命令文本一改即重新弹窗）；2) 软链强制双重校验：`git check-ignore` + 规范路径穿越防护；3) **v2 边界**：门控不覆盖被调用脚本文件与包管理器钩子的内容变化，也不覆盖 Agent 自己加载的项目级配置（见 R11），不能当作对恶意分支的完整防护。 |
 | **R7** | **macOS GUI `PATH` 缺失导致找不到 `claude` / `codex` / `git` / `gh`** | 高 | 中 | Finder 双击启动后报错 `executable not found`（尤其 nvm/mise/volta 用户） | 1) 启动后台执行 `$SHELL -ilc 'env -0'`（3s 超时保护 + 交互抑制）并叠加常见路径回退表；2) 设置页内置「工具链诊断向导」，展示当前探测路径并支持手动指定二进制绝对路径。 |
 | **R8** | **macOS Notarization / Hardened Runtime 与嵌套二进制签名失败** | 中 | 中 | `notarytool` 拒签或用户打开提示“文件已损坏” | 1) M0–M1 开发期先用占位 ID + 本地 ad-hoc 签名快速推进，**定稿正式 Bundle ID 与 Developer ID 证书后（最晚在 M4 公证演练窗口前）即提前在 CI 试跑单一 `arm64` 空壳签名公证**，绝不拖到发版当日才暴露；2) 严格禁用 `codesign --deep`，由内向外逐一签名 `Sparkle`、`ShepherdReaper` 与主 App。 |
 | **R9** | **5 并发吐字 + 8,000 行大 Diff 引发主线程掉帧或内存飙升** | 中 | 中 | Instruments 出现 > 16ms 掉帧或内存超过 220 MB 门禁 | 1) Actor 33ms 合并推送 + Chat 不可变历史块拆分；2) Diff Inspector 从 Day 1 采用 AppKit 虚拟化 `NSTableView`，单文件超 1,500 行默认折叠按需展开；3) >128 KB 日志外置 Blob 文件。 |
+| **R10** | **`claude -p` 用量政策恢复（v2 新增）** | 中 | 高 | Anthropic 帮助中心文章更新，或官方公告恢复 2026 年 5 月宣布的用量拆分 | 1) 该方案 6 月 15 日暂停、未给恢复时间（[`docs/01-orca-audit.md`](./01-orca-audit.md) §7.5），按「可能恢复」做准备；2) 架构上保持终端通道可以升为 Claude 主路径，是否提前终端抽屉由 Claude 接入专题决定；3) 公测前复查该文章。 |
+| **R11** | **无头模式跳过工作区信任（v2 新增）** | 高 | 高 | 在带项目级 hooks 的仓库里新建 Worktree 后，hooks 未经确认即执行 | 1) M0 验证 Claude 与 Codex 各自的加载行为；2) 视结果增设 Shepherd 自己的仓库信任门，或限制加载的配置来源；3) 在此之前，文档与界面不宣称对陌生仓库安全。 |
+| **R12** | **工期与体量估算偏乐观（v2 新增）** | 高 | 高 | M0 实际耗时超出 3 周；Claude 适配器代码量远超 2 千行 | 1) 现有数字一律按未验证目标对待，M0 出口校准；2) 依据：Orca 三个协议目录合计约 10 万行而方案估约 5 千行，「<1 万行」不含 UI，Orca 在 SDK 之上仍有约 1.3 万行结构化对话代码；3) 一份评审的独立估算为 16–20 周，另一份主张 M0 跑通后再校准，两者都不支持直接承诺原排期；4) 削减顺序已预先商定（§3 开头）。 |
+| **R13** | **审批控制范围小于界面承诺（v2 新增）** | 高 | 高 | 界面显示「每次询问」，执行记录里却有未经审批的操作 | 1) 档位映射 Agent 原生模式；2) M0 逐驱动验证必经性；3) 界面与审计日志如实标注覆盖范围（[`docs/02-architecture.md`](./02-architecture.md) §3.3.4）。 |
+| **R14** | **Chat 长转录渲染卡顿（v2 新增）** | 中 | 中 | 200+ 条消息的会话切换超过 50 ms，或流式输出时滚动抖动 | M0 的 Chat 渲染 Spike 在 SwiftUI 懒加载列表与 AppKit 虚拟化列表之间选型，并完成 Markdown 引擎选型。 |
 
 ---
 
