@@ -63,9 +63,13 @@ textarea{font:inherit;color:inherit}
 </section>
 
 <aside aria-label="变更" style="position:relative;min-width:0;background:var(--surface);border-left:1px solid var(--hair)">
-<div aria-label="竖条：工具栏按钮（系统给出的 trailing 边）" style="position:absolute;top:120px;right:14px;bottom:24px;width:60px;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:5">
+<div aria-hidden="true" title="系统区域：竖排状态栏" style="position:absolute;top:40px;right:14px;width:60px;display:flex;flex-direction:column;align-items:center;gap:4px;z-index:5;pointer-events:none">
+<span style="font-size:15px;line-height:20px;font-weight:600">21:34</span>
+<svg class="ic" viewBox="0 0 24 24" width="34" height="34" style="stroke-width:1.6"><circle cx="12" cy="12" r="10.5"></circle><path d="M7.4 11.2a6.6 6.6 0 0 1 9.2 0M9.4 13.6a3.7 3.7 0 0 1 5.2 0"></path><circle cx="12" cy="16.2" r="0.9" style="fill:currentColor"></circle></svg>
+</div>
+<div aria-label="竖条：返回在最上，接着是主要操作（系统给出的 trailing 边）" style="position:absolute;top:128px;right:14px;bottom:24px;width:60px;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:5">
 <button aria-label="返回会话列表" class="glass" style="width:52px;height:52px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="stroke-width:2.2"><path d="m15 6-6 6 6 6"></path></svg></button>
-<button aria-label="创建 PR" class="glass-tint" style="width:60px;height:72px;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex-shrink:0"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"></path></svg><span style="font-size:11px;font-weight:600">PR</span></button>
+<button aria-label="创建 PR" class="glass-tint" style="width:52px;height:52px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"></path></svg></button>
 <div class="glass" style="width:60px;border-radius:9999px;padding:4px;display:flex;flex-direction:column;gap:2px;align-items:center;flex-shrink:0">
 <button aria-label="切换统一 / 并排视图" class="icb" style="width:50px;height:50px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"></rect><path d="M12 3.5v17"></path></svg></button>
 <button aria-label="在 Mac 上用 Cursor 打开" class="icb" style="width:50px;height:50px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"></path></svg></button>
