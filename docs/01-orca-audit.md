@@ -1,7 +1,7 @@
 # 01 — `stablyai/orca` 上游代码审计报告
 
 > **审计对象**：`https://github.com/stablyai/orca`（本地只读参考快照 `/tmp/shepherd-orca-ref`；该路径在临时目录，重启或清理后会丢失，复现方式见 §7.1）
-> **修订状态**：评审修订版 v2（2026-11-26）。正文审计结论未变；新增 §7「评审补充查证」，并在涉及 Claude 协议参考、ACP 适配器依赖与体量估算的几处加了「更正（v2）」标注。
+> **修订状态**：评审修订版 v2（2026-11-26）。正文审计结论未变；新增 §7「评审补充查证」，并在涉及 Claude 协议参考、ACP 适配器依赖与体量估算的几处加了「更正（v2）」标注。v3：新增 §7.6（Magpie 的插件结构）。本文 §4.4 建议为 Native Chat 配终端抽屉、§5 把 `agent-hooks` 与 `pty` 列为 P1 可选，这两处建议最终未被采纳，Shepherd 不内嵌终端（[`docs/02-architecture.md`](./02-architecture.md) §2.4）；正文保留原样，作为当时的审计意见。
 > **审计基线**：Commit `284bf8425a0a518225c81becdaf0023d52fa5d1e`（`package.json` 版本 `1.4.214`，锁定 `Node v24.22.3` / `Electron 45.4.1`）
 > **审计目标**：为 **Shepherd**（轻量裁剪版 macOS Native 多 AI 编程代理编排应用，本期忽略 Magpie 模型网关）提供面向代码实证的合规底线、Electron 解耦评估、Agent 协议细节、Worktree/存储/Skill 实况以及模块级裁剪清点表。
 > **事实分级说明**：本文严格区分 **`[已查证]`**（直接来自上游仓库源码、构建脚本或官方文档）与 **`[推断/评估]`**（基于代码事实推演出的工程工作量、合规风险或行业经验判断）。
@@ -373,7 +373,7 @@ Orca 采用 **「轻量 Stub + 按需拉取 Guide」两级分发架构**（`skil
    - **合规隐患**：内置 `orcad` 会顺带引入受 Anthropic 商业条款约束的 `@anthropic-ai/claude-agent-sdk`。
 3. **审计视角倾向结论**：
    - **高度利好路线 B（纯 Swift 原生核心，将 `stablyai/orca` 作为「协议规格与边界坑位活字典」）**。Shepherd MVP 真正需要的协议面极窄（总计估算仅 **~1 万行以内 Swift 后端代码**，不足 Orca `src/main` 的 1%）。**v2 注**：「活字典」对 Codex 与 ACP 成立，对 Claude 线协议不成立（见 §3.2 更正）；「~1 万行」不含 UI，且 Orca 三个协议目录合计约 10 万行，该估算偏乐观，待 M0 出口用实测校准。协议面包括：① `git worktree` + `shepherd.yaml`/`orca.yaml`（含 SHA-256 信任哈希与 `.gitignore` 软链校验）；② Codex `app-server` stdio NDJSON 客户端；③ Claude Code `stream-json` stdio 协议客户端（避开闭源 SDK）；④ 精简版 ACP JSON-RPC 2.0 客户端；⑤ 原生 GRDB SQLite + 可选 `SwiftTerm`/`libghostty` 终端抽屉。
-   - 若因极短 MVP 验证周期考虑路线 A 作为短期原型，也**必须**在 Swift 侧用抽象 Protocol 彻底隔离 `orcad` 自定义 RPC 契约，且切勿对 `src/main/runtime` 做侵入式深裁剪（只做黑盒挂载），以便后续平滑切换到纯 Swift 协议层。
+   - 若为了快速验证而考虑把路线 A 作为短期原型，也**必须**在 Swift 侧用抽象 Protocol 彻底隔离 `orcad` 自定义 RPC 契约，且切勿对 `src/main/runtime` 做侵入式深裁剪（只做黑盒挂载），以便后续平滑切换到纯 Swift 协议层。
 
 ---
 
@@ -431,3 +431,21 @@ git -C /tmp/shepherd-orca-ref checkout 284bf8425a0a518225c81becdaf0023d52fa5d1e
 - **Conductor**：2026 年 11 月初被 Meta 收购，团队并入 Meta Superintelligence Labs；Conductor Cloud 当月关停，桌面端只更新到 2027 年初。来源：[The Register](https://theregister.com/ai-and-ml/2026/11/05/meta-brings-conductor-on-board-its-model-train/5307711)、[InfoWorld](https://www.infoworld.com/article/4245065/meta-acquires-conductor-as-ai-coding-shifts-toward-multi-agent-development.html)。
 - **cmux**：更新日志显示已有 Diff 查看器（不晚于 2026 年 9 月的 0.64.23，后续加入已阅跟踪与文件过滤）、与 Diff 评审评论相关的 `cmux comments` 命令，以及 0.65.1 的「Agent chat panes (beta)」。更新日志未读全，逐行评论回传 Agent 的完整流程未逐项确认。来源：[cmux changelog](https://cmux.com/docs/changelog)。
 - **Paradev**：即原 Superset，2026 年 10 月更名。来源：[Paradev README](https://raw.githubusercontent.com/ParadevAI/Paradev/main/README.md)。
+
+### 7.6 Magpie 的插件结构（v3 · 查证于 2026-11-26）
+
+用于支撑 [`docs/02-architecture.md`](./02-architecture.md) §3.1.5 的 provider 分层。查证对象是 [`yetone/magpie`](https://github.com/yetone/magpie)（MIT，Go）当日默认分支的文档。
+
+- **定位**：本机模型网关。Agent 把请求发到本机网关，由它路由到用户的 API Key、订阅与本地模型。来源：`README.zh-CN.md`。
+- **内置插件**：
+  - 仓库 `plugins/` 下每个目录是一个编进二进制、可以关闭的包。
+  - 插件在 `init` 里用清单注册。清单声明兼容的宿主接口版本范围（如 `^1`），以及所需与所提供的服务。
+  - 核心代码不引用任何插件，只有入口经 `plugins/all` 引入。这条边界由测试 `TestPluginsImportOnlyCore` 强制，插件之间只通过服务互相访问。
+  - 来源：`docs/subsystems/plugin-runtime.md`。
+- **社区 provider 插件**：
+  - 独立仓库 [`magpie-community/plugins`](https://github.com/magpie-community/plugins) 里的 npm 包，沿用 OpenCode 的插件格式。
+  - 插件负责登录、列出模型与发送请求。
+  - 插件运行在 Bun 上，首次需要时才下载。
+  - 来源：`README.zh-CN.md`。
+- **归属与版本**：一个订阅要么由内置实现负责，要么由插件负责。Magpie 为每个迁移到插件的订阅记录所需的最低插件版本，内置实现逐个退役。来源：`docs/subsystems/provider-plugins.md`。
+- **对 Shepherd 的含义**：可借鉴的是两层结构、清单加版本范围，以及用测试守住依赖方向。不能照搬的是脚本运行时与基本无状态的插件契约（`docs/02-architecture.md` §3.1.5）。

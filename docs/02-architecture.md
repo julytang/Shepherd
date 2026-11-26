@@ -1,7 +1,7 @@
 # Shepherd macOS 原生系统架构设计
 
 > **文档角色**：Shepherd 方案计划书 — 系统架构篇（`docs/02-architecture.md`）  
-> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成校准，**路线 C1 保留**。评审修订版 v2（2026-11-26）：性能与工期数字均为未实测目标；审批模型、进程清理、Worktree 安全与 Chat 渲染四处设计已按评审修正；**Claude Code 接入设计待专题对齐（见 §3.1.4）**。  
+> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成校准，**路线 C1 保留**。修订版 v3（2026-11-26）：性能数字均为未实测目标；审批模型、进程清理、Worktree 安全与 Chat 渲染四处设计已按评审修正（v2）；**Claude Code 接入已对齐（§3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划（v3）**。  
 > **目标平台与协议**：macOS 15.0+ (Sequoia) · **仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · Swift 6.0+ Strict Concurrency · **MIT License**  
 > **架构愿景**：以 Conductor / cmux 级别的 macOS 原生轻快体验，承载 Orca 级别的跨厂商 BYOA（Claude Code / Codex / ACP Agent）与 Git Worktree 并发隔离编排能力。  
 > **范围说明**：本期聚焦本地单机多 Agent 编排核心，**不包含**模型路由网关或协议转换代理（如 Magpie 类能力），仅在底层预留干净的子进程环境变量注入与协议扩展边界（详见第 7 节）。
@@ -12,7 +12,7 @@
 
 Shepherd 的首要架构决策在于：**核心编排引擎与 Agent 协议驱动层，究竟采用 Node.js Sidecar 复用裁剪版 Orca 无头后端（`orcad`），还是 100% 用纯 Swift 原生实现？**
 
-以下结合 `docs/01-orca-audit.md` 对 `stablyai/orca`（~370 万 LOC）的源码级审计实证，对三条候选路线进行架构拆解与 6 维度量化对比。
+以下结合 `docs/01-orca-audit.md` 对 `stablyai/orca`（~370 万 LOC）的源码级审计实证，对三条候选路线进行架构拆解与 5 维度量化对比。
 
 ### 1.1 候选路线定义（已按源码审计实证校准）
 
@@ -43,29 +43,28 @@ Shepherd 的首要架构决策在于：**核心编排引擎与 Agent 协议驱�
 
 #### 路线 C：分阶段演进路线（Protocol-First 抽象边界）
 路线 C 用强协议接口隔离「编排控制面」与「Agent 传输实现」，评估两个方向：
-- **策略 C1（纯 Swift 内核 + 按需轻量 ACP 逃生舱 — 最终锁定方案）**：Shepherd 主进程、Worktree 管理、SQLite 持久化、Codex 驱动、ACP Client、Claude `stream-json` 驱动全部 100% Swift 原生实现；所有 Agent 均隐藏在统一的 `AgentAdapter` Swift 协议之后。当上游 Claude CLI 底层 `stream-json` 发生破坏性变更时，可通过 `ACPClientAdapter` 切至用户自行安装的适配器 `@agentclientprotocol/claude-agent-acp` 作为备用通道，无需引入整套 Orca Sidecar。**v2 更正**：该适配器直接依赖 `@anthropic-ai/claude-agent-sdk` 并要求 Node ≥ 22（`01-orca-audit.md` §7.2），启用它等于在用户机器上重新引入这两项运行时依赖；切换耗时、会话能否续用、审批行为是否一致均未实测，原「1 天内」「零侵入」的说法撤回。备用路径的排序待 Claude 接入专题确定（§3.1.4）。
+- **策略 C1（纯 Swift 内核 + 按需轻量 ACP 逃生舱 — 最终锁定方案）**：Shepherd 主进程、Worktree 管理、SQLite 持久化、Codex 驱动、ACP Client、Claude `stream-json` 驱动全部 100% Swift 原生实现；所有 Agent 均隐藏在统一的 `AgentAdapter` Swift 协议之后。当上游 Claude CLI 底层 `stream-json` 发生破坏性变更时，可通过 `ACPClientAdapter` 切至用户自行安装的适配器 `@agentclientprotocol/claude-agent-acp` 作为备用通道，无需引入整套 Orca Sidecar。**v2 更正**：该适配器直接依赖 `@anthropic-ai/claude-agent-sdk` 并要求 Node ≥ 22（`01-orca-audit.md` §7.2），启用它等于在用户机器上重新引入这两项运行时依赖；切换耗时、会话能否续用、审批行为是否一致均未实测，原「1 天内」「零侵入」的说法撤回。**v3 定稿**：该适配器定位为外部 provider `claude-acp`，是 Claude 在 Native Chat 下唯一的备用路径，由用户自行安装，切换后只能新开会话（§3.1.4、§3.1.5）。
 - **策略 C2（Sidecar-First 渐进替换 — 审计后已否决）**：经 `01-orca-audit.md` 查证，`orcad` 虽无 Electron 依赖，但挂接自定义 1,202 方法 RPC 契约 + 150 MB Node 24 包体 + 闭源 SDK 风险的短期收益远不如直接写 ~3,000 行 Swift 协议层，且后续迁移还要推倒重写一遍传输适配层，属于高沉没成本弯路，因此正式否决。
 
 ---
 
-### 1.2 六维度量化与定性对比矩阵
+### 1.2 五维度量化与定性对比矩阵
 
-> **口径说明（v2）**：路线 A 的体积与结构数据来自 `01-orca-audit.md` 的源码审计；三条路线的启动时间、内存、包体与周期数字都是估算，尚未实测，不应当作已验证的对比结果引用。
+> **口径说明（v2）**：路线 A 的体积与结构数据来自 `01-orca-audit.md` 的源码审计；三条路线的启动时间、内存与包体数字都是估算，尚未实测，不应当作已验证的对比结果引用。
 
 | 评估维度 | 路线 A：Sidecar 混合模式（Swift + Orca `orcad`） | 路线 B：100% 纯 Swift 原生 | 路线 C1：纯 Swift 内核 + ACP 逃生舱（最终锁定） |
 | :--- | :--- | :--- | :--- |
 | **1. 冷启动速度**（点击图标至首屏可交互） | 1.5s – 2.8s（App 启动 + Node 24 启动 + ~11MB bundle 解析 + 多子 Worker 初始化） | **0.2s – 0.4s**（纯原生二进制直接渲染） | **0.2s – 0.4s**（逃生舱仅按需懒启动，不影响主进程） |
 | **2. 内存占用**（空闲 / 5 并发会话不含外部 Agent 进程） | 空闲 **250–500 MB**（`orcad` V8 堆 + 多个常驻子 Node/Worker 进程）；5 会话 400–700 MB | **空闲 45–75 MB；5 会话 110–180 MB** | **空闲 45–75 MB；5 会话 110–180 MB**（启用外部 ACP 桥时仅单会话额外 +45 MB） |
-| **3. 安装包体积**（签名压缩后 `.dmg`） | **150 – 260 MB**（仅 Node v24.22.3 `arm64` 即 122.6 MB，双架构 ~248 MB，另含 25 入口与 `.node` 模块；**口径注**：这些是未压缩体积，Node 官方发行包压缩后约 26–51 MB，压缩后的 `.dmg` 会明显小于此值（未实测），路线结论不依赖该数字） | **12 – 22 MB**（SwiftTerm 方案；若未来内嵌 `libghostty` 约 25–35 MB） | **12 – 22 MB**（零捆绑 Node 运行时，对齐 `03-product-and-ux.md` ≤25 MB 红线） |
-| **4. MVP 研发周期**（2 名熟悉 Swift 工程师） | 4 – 6 周（虽 0 Electron 解耦，但需适配自定义 RPC + 裁剪 31.7 万行 `OrcaRuntimeService` + 解决公证签名） | 原估 5 – 6.5 周；v2 目标 8 周（M0 扩至约 3 周 + ~1 万行核心 Swift 代码 + 原生 UI/Diff），待 M0 出口校准 | **目标 8 周，待 M0 出口校准**（与路线 B 持平；评审方的独立估算明显更长，见 `04-roadmap-and-engineering.md` §5 R12） |
-| **5. 上游协议追新与合规风险** | **合规高风险**（捆绑商业条款 `@anthropic-ai/claude-agent-sdk`）；裁剪分支无法合并上游 | **合规干净**；Codex/ACP 稳定，Claude `stream-json` 存在单点追新风险 | **直连路径合规姿态较稳，追新靠 Golden-file 与备用通道**（备用的 `claude-agent-acp` 依赖 SDK 与 Node，订阅登录下的合规性需公测前确认，见 §3.1.4） |
-| **6. 调试与排障复杂度** | **高**（Swift + Node 24 + 25 子进程 + `.node` 原生插件，Notarization 与崩溃归因复杂） | **低**（纯 Xcode 单进程调试、单一 Crash Log、Instruments 全链路分析） | **低**（95% 路径单进程调试，逃生舱走标准 stdio NDJSON 抓包） |
+| **3. 安装包体积**（签名压缩后 `.dmg`） | **150 – 260 MB**（仅 Node v24.22.3 `arm64` 即 122.6 MB，双架构 ~248 MB，另含 25 入口与 `.node` 模块；**口径注**：这些是未压缩体积，Node 官方发行包压缩后约 26–51 MB，压缩后的 `.dmg` 会明显小于此值（未实测），路线结论不依赖该数字） | **12 – 22 MB**（不内嵌终端） | **12 – 22 MB**（零捆绑 Node 运行时，对齐 `03-product-and-ux.md` ≤25 MB 红线） |
+| **4. 上游协议追新与合规风险** | **合规高风险**（捆绑商业条款 `@anthropic-ai/claude-agent-sdk`）；裁剪分支无法合并上游 | **合规干净**；Codex/ACP 稳定，Claude `stream-json` 存在单点追新风险 | **直连路径合规姿态较稳，追新靠 Golden-file 与备用通道**（备用的 `claude-agent-acp` 依赖 SDK 与 Node，订阅登录下的合规性需公测前确认，见 §3.1.4） |
+| **5. 调试与排障复杂度** | **高**（Swift + Node 24 + 25 子进程 + `.node` 原生插件，Notarization 与崩溃归因复杂） | **低**（纯 Xcode 单进程调试、单一 Crash Log、Instruments 全链路分析） | **低**（95% 路径单进程调试，逃生舱走标准 stdio NDJSON 抓包） |
 
 ---
 
 ### 1.3 最终技术路线裁决（DECISION LOCKED）
 
-> **最终裁决**：**正式锁定路线 C1（100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱）**，彻底放弃复用 `orcad` Node Sidecar（路线 A / C2）。（注：`@agentclientprotocol/claude-agent-acp` 这类适配器只作为用户自行安装的外部 CLI，不随 Shepherd 安装包捆绑；它自身依赖 Claude Agent SDK 与 Node，定位与排序见 §3.1.4。）
+> **最终裁决**：**正式锁定路线 C1（100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱）**，彻底放弃复用 `orcad` Node Sidecar（路线 A / C2）。（注：`@agentclientprotocol/claude-agent-acp` 这类适配器只作为用户自行安装的外部 CLI，不随 Shepherd 安装包捆绑；它自身依赖 Claude Agent SDK 与 Node，定位见 §3.1.4 与 §3.1.5。）
 
 **四条硬事实决策依据（全部已由 `docs/01-orca-audit.md` 交叉核验）**：
 1. **体量与性能红线不可妥协**：`orcad` 虽已零 Electron 依赖，但绑定 Node v24.22.3（122.6 MB）+ 25 个子进程入口导致冷启动、内存（250–500 MB）与安装包体积（150 MB+）全面击穿 `docs/03-product-and-ux.md` 确立的验收红线（TTI ≤ 400ms、空闲内存 ≤ 80 MB、`.dmg` ≤ 25 MB）。
@@ -90,7 +89,6 @@ flowchart TB
         Nav["WindowGroup & SplitView: Repo / Worktree 状态树"]
         Chat["Native Chat Stream: Markdown · Thinking · ToolCard · 内联审批"]
         Diff["High-Perf Diff Inspector: NSTextView TextKit 2 / 虚拟化 NSTableView"]
-        Term["Optional Terminal Drawer (P1: SwiftTerm · P2: libghostty)"]
         Menu["MenuBarExtra & UNUserNotificationCenter: 状态徽章 + 深链接跳转审批"]
     end
 
@@ -103,17 +101,17 @@ flowchart TB
 
     subgraph Domain["Domain & Core Services Layer (Pure Swift Actors)"]
         direction LR
-        RuntimeMgr["AgentRuntimeManager: 统一 AgentAdapter 协议注册表"]
+        RuntimeMgr["ProviderRegistry: 按清单注册 provider，核心不引用具体实现"]
         WTMgr["WorktreeManager (Per-Repo Serial Actor): 创建 · 软链 · scripts.setup · 清理"]
         DiffEngine["GitDiffEngine + FSEventsWatcher: 增量状态追踪 & Hunk 解析"]
         Supervisor["ProcessSupervisor: 进程组 PGID 管理 & Watchdog 孤儿回收"]
     end
 
-    subgraph Adapters["Agent Runtime Adapters (NDJSON / JSON-RPC over stdio)"]
+    subgraph Adapters["Agent Providers (内置 Swift 包 · NDJSON / JSON-RPC over stdio)"]
         direction LR
-        CodexAdp["CodexAppServerAdapter (codex app-server)"]
-        ClaudeAdp["ClaudeCodeAdapter (stream-json / 可选 ACP 降级)"]
-        ACPAdp["ACPClientAdapter (标准 Agent Client Protocol)"]
+        CodexAdp["codex: CodexAppServerAdapter (codex app-server)"]
+        ClaudeAdp["claude-direct: ClaudeCodeAdapter (stream-json 直连)"]
+        ACPAdp["acp: ACPClientAdapter，承载外部 provider (claude-acp / Gemini / OpenCode 等)"]
     end
 
     subgraph Infra["Infrastructure & Persistence Layer"]
@@ -138,7 +136,7 @@ flowchart TB
 | UI 模块 | 实现技术 | 关键工程考量 |
 | :--- | :--- | :--- |
 | **主窗口与三栏布局** | SwiftUI `WindowGroup` + `NSSplitViewController` 桥接 | 精确保存各栏宽度（`autosaveName`）、支持一键折叠左侧栏与右侧 Diff Inspector、支持原生 Unified Toolbar 与毛玻璃侧栏材质（`.sidebar`）。 |
-| **Native Chat 对话流** | **待 M0 Chat 渲染 Spike 选型**：候选一为 SwiftUI `ScrollView` + 增量块级模型（代码/长文本段用 AppKit 文本视图），候选二为与 Diff 相同的 AppKit 虚拟化列表（`NSTableView` / TextKit 2） | **防抖渲染**：单条流式回复拆分为稳定历史块（Immutable）+ 当前活跃尾块（Mutable），仅活跃块响应 delta 更新，避免整条列表触发全量 Diff 重排。**v2 补充**：Chat 是承担约 90% 交互的界面，长转录（200+ 条消息）下 SwiftUI 懒加载列表的滚动定位、跨块文本选择与流式 Markdown 增量解析都是已知难点，不应只给 Diff 做虚拟化；Markdown 引擎尚未选型（见 `04-roadmap-and-engineering.md` §1.3）。 |
+| **Native Chat 对话流** | **待 M0 Chat 渲染 Spike 选型**：候选一为 SwiftUI `ScrollView` + 增量块级模型（代码/长文本段用 AppKit 文本视图），候选二为与 Diff 相同的 AppKit 虚拟化列表（`NSTableView` / TextKit 2） | **防抖渲染**：单条流式回复拆分为稳定历史块（Immutable）+ 当前活跃尾块（Mutable），仅活跃块响应 delta 更新，避免整条列表触发全量 Diff 重排。**v2 补充**：Chat 是唯一的对话界面，长转录（200+ 条消息）下 SwiftUI 懒加载列表的滚动定位、跨块文本选择与流式 Markdown 增量解析都是已知难点，不应只给 Diff 做虚拟化；Markdown 引擎尚未选型（见 `04-roadmap-and-engineering.md` §1.3）。 |
 | **高性能 Diff 查看器** | **AppKit `NSTextView`（TextKit 2）** 或 **虚拟化 `NSTableView`** | 当单次 Agent 重构涉及 50 个文件 / 8,000 行 Diff 时，SwiftUI `LazyVStack` 会出现滚动掉帧与高内存；使用基于行/Hunk 虚拟化的 `NSTableView`（配合异步语法高亮缓存，如 `swift-tree-sitter`）可稳定保持 120fps（ProMotion）。 |
 | **菜单栏常驻伴侣** | SwiftUI `MenuBarExtra(.window)` | 实时展示并发 Worktree 聚合徽章（绿色空闲 / 蓝色运行 / **琥珀色待审批数字**），点击弹窗可一目了然查看所有运行中任务并一键唤起对应窗口；遵循安全原则，不在极窄 Popover 中提供高危命令盲批按钮，一律点击跳入主窗口看清上下文后再 `⌘↩` 确认。 |
 | **系统级审批通知** | `UNUserNotificationCenter` + 深链接路由 | 对「待审批 / 已完成 / 报错」三类事件精准推送（当前窗口已聚焦该 Worktree 时自动抑制免打扰）；携带 `worktree_id` 与 `approval_id`，点击通知直接激活主窗口并聚焦对应内联审批条。 |
@@ -152,29 +150,22 @@ Shepherd 在架构层强制执行以下并发约束：
 2. **33ms（30Hz）输出合并窗口（Delta Coalescer）**：`SessionRuntime` 在 Actor 内累积 `thinkingDelta`、`messageDelta`、`toolOutputDelta`，通过轻量定时刷盘器每 33ms（或遇到状态跃迁/Turn 结束立即刷新）向 `@MainActor` 的 `SessionViewModel`（`@Observable`）推送一次不可变快照增量。
 3. **只读 UI 投影**：UI 视图仅观察 `@Observable final class WorkspaceStore` 与 `SessionViewModel`；所有用户意图（发送 Prompt、点击审批、中断 Turn、清理 Worktree）均通过异步 Command 投递到对应 Actor 执行，UI 仅负责呈现状态与乐观反馈。
 
-### 2.4 可选极简终端抽屉（P1）选型对比：`libghostty` vs `SwiftTerm`
+### 2.4 不内嵌终端（v3 决定）
 
-产品定位上，Shepherd 90% 场景以 Native Chat 为主交互，但在应急处理原版 TUI 斜杠命令、运行本地调试脚本或手动 `git` 排错时，提供一键呼出（`⌘J`）的当前 Worktree 极简终端抽屉。
+原方案在 P1 提供 `⌘J` 内嵌终端抽屉（`SwiftTerm`），并用它承担 Claude 的「Resume in Terminal」备用路径。v3 把它整体移出规划：
 
-| 对比维度 | `libghostty` (`GhosttyKit`) | `SwiftTerm` |
-| :--- | :--- | :--- |
-| **底层技术与渲染** | Zig 编写核心 + C API，macOS 上采用 **Metal GPU 加速渲染**（`CAMetalLayer`），吞吐与延迟为行业天花板 | 纯 Swift 编写，基于 CoreGraphics / AppKit 文本层绘制 |
-| **TUI / 协议兼容** | 完美支持现代终端序列、Kitty 图形协议、连字、复杂 Emoji / CJK 宽字符、与 `~/.config/ghostty/config` 一致 | 完备的 VT100/VT220/Xterm-256color 解析，足以运行 `zsh`、`git`、`vim`、测试日志与主流 TUI，高级图形/连字弱于 Ghostty |
-| **构建链与集成成本** | **高**：需要 Zig 编译器构建 `GhosttyKit.xcframework`（或引入预编译二进制），C API 仍在演进中，需处理 C 指针与 `@MainActor` 桥接 | **极低**：标准 Swift Package Manager 一行引入，零外部工具链，源码可直接单步调试 |
-| **包体增量** | 约 +5 ~ 9 MB（`arm64` XCFramework） | **< 1 MB** |
-| **适用定位** | 以终端为核心界面的超级终端（如 cmux） | 以 Native Chat + Diff 为核心、终端仅作应急抽屉的应用 |
-
-#### 推荐与渐进降级策略
-1. **接口先行（TerminalSurfaceProtocol）**：在独立 Package `ShepherdTerminal` 中定义统一抽屉契约 `TerminalSurfaceHosting`，将 PTY 会话句柄、环境变量注入、Resize、清屏、焦点管理与底层渲染引擎解耦。
-2. **P1 / M3 首发锁定 `SwiftTerm`**：终端抽屉（`⌘J`）已锁定在 **M3** 交付（M0–M2 专注 Native Chat + 原生 Diff/PR 核心闭环），首发选用纯 Swift `SwiftTerm`，契合 Shepherd「轻快、小包体、零复杂构建链」的哲学，1–2 天即可交付稳定可用的 Worktree 绑定终端抽屉，且无需维护 Zig CI 构建管线。
-3. **P2 按需无缝升级 `libghostty` (`GhosttyKit`)**：当后续真实用户场景证明「在抽屉内长期运行复杂 TUI 或百万行日志滚动」成为高频痛点时，仅需为 `ShepherdTerminal` 新增 `GhosttySurfaceView` 实现并接入预编译 `GhosttyKit.xcframework` CI 产线即可替换，上层零改动。
-4. **关键 SwiftUI 生命周期陷阱规避（两者通用）**：**严禁**使用 `if isDrawerVisible { TerminalView() }` 条件渲染控制抽屉显隐——SwiftUI 的 `_ConditionalContent` 会在折叠时销毁底层 `NSView`，导致正在运行的 Shell / PTY 进程意外中断。正确做法是维护按 `worktreeID` 索引的 **持久化 `NSView` 容器池（`TerminalViewPool`）**，通过隐藏容器视图或折叠 `NSSplitViewItem` 实现毫秒级无损显隐切换。
+- **对话只有 Native Chat 一种形态**。Claude 的备用路径改为同一契约下的另一个 provider（§3.1.4），不再经过终端。
+- **需要 shell 时跳系统终端**。`⌘⇧T` 在用户的默认终端里打开当前 Worktree 目录，Shepherd 不管理这个终端里的进程。
+- **随之取消的部分**：`ShepherdTerminal` 包与 `SwiftTerm` 依赖、PTY 容器池、`OSC 7501` 状态解析、终端 Hook、Native Chat 与 TUI 之间的会话互斥锁、终端轮次的转录回填。
+- **原先靠终端解决的事**（登录、用量查看、TUI 专属斜杠命令）的去处见 §3.1.4。
 
 ---
 
 ## 3. 核心子系统详细设计
 
 ### 3.1 Agent Runtime Adapter 层
+
+> **v3**：Agent 接入按 provider 组织。每个 provider 是一个独立的包，内含一个 `AgentAdapter` 实现；核心只依赖契约，不引用具体 provider。分层与独立维护的规则见 §3.1.5。
 
 #### 3.1.1 统一内部事件模型与 Adapter 协议（Swift 6）
 
@@ -259,17 +250,23 @@ public protocol AgentAdapter: Sendable {
 
 | 交互类型 | 用户看到的界面 | Codex 来源与回包 | Claude / ACP 对应 |
 | :--- | :--- | :--- | :--- |
-| **权限确认** | 内联审批条（允许一次 / 本会话允许 / 拒绝 / 取消） | `item/commandExecution/requestApproval`、`item/fileChange/requestApproval` → 回 `decision`（命令审批另有两种策略修订选项） | Claude `can_use_tool`；ACP `session/request_permission` |
-| **问题作答** | 问答卡（选项或自由文本） | `item/tool/requestUserInput` → 回 `answers` | Claude 的用户问答类请求（待 §3.1.4 对齐）；ACP 视方言而定 |
+| **权限确认** | 内联审批条（允许一次 / 本会话允许 / 拒绝 / 取消） | `item/commandExecution/requestApproval`、`item/fileChange/requestApproval` → 回 `decision`（命令审批另有两种策略修订选项） | Claude `can_use_tool`（含退出计划模式的确认）；ACP `session/request_permission` |
+| **问题作答** | 问答卡（选项或自由文本） | `item/tool/requestUserInput` → 回 `answers` | Claude 的提问同样以 `can_use_tool` 到达（工具名 `AskUserQuestion`），答案随回包带回，字段以 M0 Golden-file 为准；ACP 视方言而定 |
 | **表单填写** | 表单卡（按请求给出的 Schema 渲染字段） | `mcpServer/elicitation/request` → 回 `action` 加可选 `content` | MCP elicitation，各 Agent 的支持程度待 M0 验证 |
+
+> **v3 契约补充（同样只改文档、不改接口代码）**：
+>
+> - 草案里的 `AgentProviderKind` 是封闭枚举。provider 分层后，provider 标识改为清单里的字符串 ID（如 `codex`、`claude-direct`、`claude-acp`），新增 provider 不需要改契约。
+> - `AgentCapabilities` 承担能力声明：是否支持权限模式切换、模型切换、会话续聊、问题作答、表单填写、用量上报。界面按声明隐藏 provider 做不到的功能。
+> - 上述类型与 `AgentAdapter` 一起移入契约包 `ShepherdProviderKit`（§3.1.5）。
 
 #### 3.1.2 三大厂商协议映射矩阵
 
-| 内部标准模型 / 动作 | `CodexAppServerAdapter` (`codex app-server`) | `ClaudeCodeAdapter` (`claude stream-json`) | `ACPClientAdapter` (标准 ACP) |
+| 内部标准模型 / 动作 | `CodexAppServerAdapter` (`codex app-server`) | `ClaudeCodeAdapter`（provider `claude-direct`） | `ACPClientAdapter` (标准 ACP) |
 | :--- | :--- | :--- | :--- |
-| **启动命令** | `codex app-server --listen stdio://` | `claude --print --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio` | `<agent-bin> <acp-args>`（如 `gemini --experimental-acp` / `claude-agent-acp`） |
+| **启动命令** | `codex app-server --listen stdio://` | `claude --print --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio --replay-user-messages`，另按情况追加 `--session-id <uuid>` 或 `--resume <id>`、`--permission-mode <mode>`（细目见 §3.1.4） | `<agent-bin> <acp-args>`（如 `gemini --experimental-acp` / `claude-agent-acp`） |
 | **传输格式** | NDJSON 双向类 JSON-RPC（线缆层**省略 `"jsonrpc": "2.0"` 字段**） | NDJSON 双向流（直连本机 `claude` CLI，零闭源 SDK 依赖） | 标准 NDJSON JSON-RPC 2.0 |
-| **握手与会话创建** | `initialize`（声明 `clientInfo: { name: "shepherd_mac", title: "Shepherd" }`，绝不沿用 `orca_desktop`）→ 收到响应后发 **`initialized` 通知** → `thread/start` / `thread/resume` | `control_request(subtype: "initialize")` → 监听 `system(subtype: "init")` 取 `session_id`（续聊加 `--resume`）；**不覆写 `CLAUDE_CODE_ENTRYPOINT=orca`** | `initialize` →（可选 `authenticate`）→ `session/new`（传 `cwd`）或 `session/load` |
+| **握手与会话创建** | `initialize`（声明 `clientInfo: { name: "shepherd_mac", title: "Shepherd" }`，绝不沿用 `orca_desktop`）→ 收到响应后发 **`initialized` 通知** → `thread/start` / `thread/resume` | 先发 `control_request(subtype: "initialize")`，收到应答后再发第一条用户消息；以 `system(subtype: "init")` 帧的 `session_id` 为准；`CLAUDE_CODE_ENTRYPOINT` 既不设置也不继承 | `initialize` →（可选 `authenticate`）→ `session/new`（传 `cwd`）或 `session/load` |
 | **发送 Prompt** | `turn/start` (`threadId`, `input`) | 向 `stdin` 写入 `{ "type": "user", "message": { "role": "user", "content": [...] } }` | `session/prompt` (`sessionId`, `prompt`) |
 | **Thinking / 文本流** | `item/started` + `item/reasoning/*` + `item/agentMessage/delta` | `stream` 事件内的 `thinking_delta` / `text_delta` 及 `assistant` 完整块 | `session/update` (`agent_thought_chunk` / `agent_message_chunk` / `plan`) |
 | **工具调用事件** | `item/started` / `item/completed`（commandExecution / fileChange / mcpToolCall） | `assistant` 块中的 `tool_use` + `user` 块中的 `tool_result` | `session/update` (`tool_call` / `tool_call_update`) |
@@ -277,14 +274,14 @@ public protocol AgentAdapter: Sendable {
 | **权限审批回复** | JSON-RPC Response（匹配 `id`），**回包结构随请求类型不同**：命令与文件审批回 `decision`（`accept` / `acceptForSession` / `decline` / `cancel`，命令审批另有 `acceptWithExecpolicyAmendment` / `applyNetworkPolicyAmendment`），用户问答回 `answers`，MCP 表单回 `action` 加可选 `content`；**所有未支持/历史 Server Request 必须显式返回拒绝或错误码，防止 `app-server` 永久挂起** | 写入 `stdin` 嵌套帧：`{ "type": "control_response", "response": { "subtype": "success", "request_id": "...", "response": { "behavior": "allow" \| "deny", ... } } }`（字段以 M0 Golden-file 实测锁定） | JSON-RPC Response（匹配 `id`）：所选 `optionId` 或取消 |
 | **中断当前 Turn** | `turn/interrupt` | `control_request(subtype: "interrupt")`（降级发 `SIGINT`） | `session/cancel`（请求超时发 `$/cancel_request`） |
 | **用量与结束** | `turn/completed` + token usage 通知 | `result` 帧（含 `session_id`、`total_cost_usd`、token 统计；识别 `rate_limit_event` 提示限流） | `session/prompt` 返回 `stopReason` + 元数据 |
-| **专属健壮性处理** | 处理 `-32001` 过载指数退避；遵循零污染原则不改写 `~/.codex/hooks.json`；MVP 一会话一进程隔离，P1 可按需引入共享进程池（空闲 60s 回收 + 内存上限巡检）；协议类型优先由 `codex app-server generate-json-schema`（实验性命令）生成，并在 CI 中比对 Schema 漂移 | 严格解析单行 JSON 容错非 JSON 告警输出；备用通道见 §3.1.4（待对齐） | 增量分帧 + 单行上限保护 + 断连尾帧排空；方言层适配模型发现模式与环境变量（如 `PI_NO_PTY=1`） |
+| **专属健壮性处理** | 处理 `-32001` 过载指数退避；遵循零污染原则不改写 `~/.codex/hooks.json`；MVP 一会话一进程隔离，P1 可按需引入共享进程池（空闲 60s 回收 + 内存上限巡检）；协议类型优先由 `codex app-server generate-json-schema`（实验性命令）生成，并在 CI 中比对 Schema 漂移 | 严格解析单行 JSON 容错非 JSON 告警输出；备用路径是外部 provider `claude-acp`（§3.1.4） | 增量分帧 + 单行上限保护 + 断连尾帧排空；方言层适配模型发现模式与环境变量（如 `PI_NO_PTY=1`） |
 
-> **v2 说明**：上表 Claude 一列与下面的三级接入策略是修订前的设计。本轮只更正了其中的事实性错误，没有按评审结论重写；启动参数、会话 ID 规则、权限映射与备用路径排序统一留到 §3.1.4 专题对齐后再定。
+> **v3 说明**：上表 Claude 一列已按 §3.1.4 的对齐结论更新。原「三级兼容接入策略」里的第三级（终端 PTY 加 Hook）随终端抽屉一起取消。
 
-**Claude Code 三级兼容接入策略（零闭源 SDK 捆绑 + 应对协议漂移与 TUI 边界）**：
-1. **默认主路径（Native Chat · 直连 `stream-json`）**：纯 Swift 直接驱动用户本机 `claude --print --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio`，**彻底不捆绑受 Anthropic Commercial Terms of Service 约束的 `@anthropic-ai/claude-agent-sdk`**，保留原生默认入口特征（绝不注入 `CLAUDE_CODE_ENTRYPOINT=orca`），支持双向审批与 `--resume` 断点续聊。
-2. **备用通道（ACP Adapter）**：若上游 Claude CLI 破坏性修改 `stream-json` 控制帧结构，可在设置中把底层切到 `ACPClientAdapter`，驱动用户自行安装的 `@agentclientprotocol/claude-agent-acp`。**v2 更正**：该适配器依赖 Claude Agent SDK 与 Node ≥ 22；它包的是同一个 CLI，上游协议变动时同样要等适配器更新；切换后能否继续同一会话、保留上下文、按预期审批都未实测。原「无缝」「零感知」的说法撤回。
-3. **可选 PTY + Hook 应急路径（P1 终端抽屉联动，对齐 `01-orca-audit.md` macOS 实况）**：当开发者按 `⌘J` 在终端抽屉中手动运行原版交互式 `claude` TUI（使用 `/btw`、`/usage` 或排查订阅窗口额度消耗）时，通过会话级互斥锁防止 Native Chat 与 TUI 并发写同一会话，并采用 **macOS 轻量双通道状态同步**——无需单独编译 Rust Hook 二进制（上游 `orca-agent-hook.exe` 仅用于 Windows）：(a) 首选解析 PTY 输出流的 **`OSC 7501`（Program Status Protocol）**零侵入探测状态（支持新版 Claude Code / Codex / Grok / Kimi 等）；(b) 可选按需挂载极简 POSIX Shell + `curl --noproxy 127.0.0.1` 回调至本地 Loopback HTTP / Unix Socket（携带 256-bit Bearer Token，仅在用户显式启用时生效，默认绝不改写 `~/.claude/settings.json`，且超时 Fail-open 绝不卡死终端）。**v2 补充**：本机 `claude` 支持 `--settings <file-or-json>` 与 `--plugin-dir`，理论上可以按会话注入 hooks 而不写用户配置；这条路是否升为第一备用通道，待 §3.1.4 对齐。
+**Claude Code 接入策略（纯 Native Chat，同一契约下两个 provider）**：
+1. **默认：内置 provider `claude-direct`**。纯 Swift 直接驱动用户本机已登录的 `claude`，自己实现双向 `stream-json` 控制协议；不捆绑受 Anthropic Commercial Terms of Service 约束的 `@anthropic-ai/claude-agent-sdk`，不冒用其他入口标识。
+2. **备用：外部 provider `claude-acp`**。经内置的 ACP 客户端驱动用户自行安装的 `@agentclientprotocol/claude-agent-acp`，界面仍是 Native Chat。它依赖 Claude Agent SDK 与 Node ≥ 22，包的是同一个 CLI：上游协议变动时要等适配器更新，用量政策变动时同样受影响。从 `claude-direct` 切过去只能新开会话，能否续用原会话未实测，不作承诺。
+3. **没有第三条路径**。终端不再承担接入或备用职责（§2.4）。直连驱动跟不上上游变动时，应对手段是尽快发版修复，以及让用户临时改用 `claude-acp`。
 
 #### 3.1.3 协议消息流与审批闭环时序图
 
@@ -338,23 +335,132 @@ sequenceDiagram
     Coord-->>UI: 标记会话完成 + 更新菜单栏状态徽章 + 发送完成通知
 ```
 
-#### 3.1.4 Claude Code 接入待对齐清单（v2 · 未决策）
+#### 3.1.4 Claude Code 接入对齐结论（v3 · 2026-11-26）
 
-评审发现 Claude Code 的接入设计有多处需要重新确定。下表各项是评审输入，**尚未决策**，留待专题讨论后再回写 §3.1.2 与 `04-roadmap-and-engineering.md` 的 M0 任务。事实依据见 `01-orca-audit.md` §7.2–§7.5。
+v2 列出的 11 项待定事项已逐项对齐，结论如下。「留给 M0 确认」一列的内容来自文档记忆或 Orca 源码，尚未在本机实测；事实依据见 `01-orca-audit.md` §7.2–§7.6。
 
-| # | 待定事项 | 已知事实 | 待讨论的选项 |
+| # | 事项 | 结论 | 留给 M0 确认 |
 | :---: | :--- | :--- | :--- |
-| 1 | **默认驱动与备用路径排序** | ACP 适配器依赖 SDK 与 Node ≥ 22；Anthropic 合规页对「未修改的 Claude Code 二进制」与「基于 SDK 的产品」表述不同；`claude` 支持 `--settings` / `--plugin-dir` 会话级注入 | 直连 CLI 为主；备用是「终端 + 会话级 hooks」还是 ACP 适配器，各排第几 |
-| 2 | **启动契约** | Orca 额外传 `--replay-user-messages`，并设 `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`；当前启动命令两项都没有 | 是否采用；其余参数以 Python SDK 源码与 M0 Golden-file 为准 |
-| 3 | **会话 ID 与续聊** | Orca 自己生成 ID：新会话用 `--session-id`，磁盘上已有转录才用 `--resume`，两者用错都会失败 | 是否沿用该规则；转录是否存在如何探测 |
-| 4 | **权限档位** | 判定顺序中 `canUseTool` 排最后，用户已有的允许规则与权限模式会先行决定；Orca 把档位直接映射到原生模式 | 提供哪些档位；是否显式覆盖用户的 `defaultMode` |
-| 5 | **「每次询问」能否兑现** | 控制协议有 `hook_callback`，hooks 在判定顺序中排第一；在 `initialize` 时注册 PreToolUse 回调，理论上能看到每次工具调用且不落盘。**未实测，Orca 也没有这样用** | 是否作为严格档位的实现方式并纳入 M0 验证 |
-| 6 | **无头模式的工作区信任** | `-p` 模式跳过信任对话，新 Worktree 里仓库自带的 `.claude/settings.json` hooks 等项目级配置不经确认即生效；脚本信任门控不覆盖这部分 | Shepherd 是否设自己的仓库信任门；是否限制 `--setting-sources` |
-| 7 | **线协议参考来源** | Orca 未实现线协议；官方 Python SDK 为 MIT 且源码可读 | 以 Python SDK 为实现依据，Golden-file 为回归依据 |
-| 8 | **终端接管后的转录对账** | TUI 中产生的轮次不会进入 Shepherd 的 SQLite；Orca 从 Claude 的 JSONL 转录回填 | 是否读取 Claude 自己的会话文件；该格式同样没有稳定性承诺 |
-| 9 | **环境变量清理** | Orca 启动前清掉继承的 `CLAUDE_CONFIG_DIR` 与被拒 API Key；Shepherd 已决定不改写 `CLAUDE_CODE_ENTRYPOINT` | `ProcessEnvironmentProvider` 采用哪些清理规则 |
-| 10 | **用量政策恢复时的预案** | 把 `claude -p` 用量移出订阅额度的方案于 2026 年 6 月暂停，未给恢复时间 | 终端通道在什么条件下升为 Claude 的主路径；是否因此提前终端抽屉 |
-| 11 | **工作量重估** | Orca 在 SDK 之上仍有约 1.3 万行结构化对话代码；原估 Claude 适配器 1.5–2 千行 | M0 出口按实测校准 |
+| 1 | **默认驱动与备用路径** | 默认 `claude-direct`（直连 CLI）；备用是外部 provider `claude-acp`；终端不是接入路径 | 切到 `claude-acp` 后的审批与交互行为是否符合预期 |
+| 2 | **启动契约** | 见下方「启动契约」 | `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1` 在本机版本是否生效 |
+| 3 | **会话 ID 与续聊** | Shepherd 生成 UUID；新会话传 `--session-id`，续聊传 `--resume`；细则见下方「会话规则」 | `--resume` 后会话 ID 是否保持不变；转录文件的路径规则 |
+| 4 | **权限档位** | 与 Claude 原生模式一一对应，默认「沿用我的 Claude 设置」；见下方「权限档位」 | `init` 帧能否读到生效的权限模式；`auto` 的可用条件 |
+| 5 | **「每次询问」** | 首版不提供。「询问」档的含义是 Claude 按自己的规则来问，界面如实标注 | `hook_callback` 能否在允许规则之前拦到每次工具调用，结果决定 P1 是否加「严格模式」 |
+| 6 | **工作区信任** | Shepherd 设自己的仓库信任门；不限制 `--setting-sources`；见下方「仓库信任门」 | 无头模式下项目级 hooks 与 MCP 的实际加载行为；`--setting-sources user` 能否挡住它们 |
+| 7 | **线协议参考来源** | 实现依据是官方 Python SDK（MIT）源码，回归依据是实机 Golden-file；记录已测试的 `claude` 版本范围，超出时提示但不阻止 | — |
+| 8 | **终端转录对账** | 取消。不内嵌终端，也就没有终端里产生的轮次（§2.4） | — |
+| 9 | **环境变量** | 与用户终端里的环境一致，只去掉宿主带进来的；见下方「环境变量」 | 需要清掉的变量完整名单；环境里有 `ANTHROPIC_API_KEY` 时无头模式的计费行为 |
+| 10 | **用量政策预案** | 接受该风险，产品内不设对冲；出路在 Shepherd 之外：API Key，或经外部网关换模型与账号（§7） | 同一任务在 Native Chat 路径下的额度消耗 |
+| 11 | **代码体量** | 原估 1.5–2 千行作废；粗估 6–9 千行 Swift（不含测试与 UI），见下方「代码体量」 | 用实测替换粗估 |
+
+**启动契约**
+
+- **进程**：一个会话对应一个常驻的 `claude` 子进程，工作目录是 Worktree，使用用户本机已登录的 CLI。
+- **固定参数**：`--print --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio --replay-user-messages`。
+- **按情况追加**：`--session-id <uuid>` 或 `--resume <id>`；`--permission-mode <mode>`（「沿用我的 Claude 设置」档不传）；`--model`。
+- **不传**：`--system-prompt`、`--setting-sources`、`--settings`、`--plugin-dir`。目的是让会话与用户在终端里直接运行 `claude` 时的行为一致。
+- **`--replay-user-messages` 的用途**：Shepherd 能确认每条用户消息已被 CLI 接收，排队消息依赖它。
+- **`CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`**：有条件采用。它没有公开文档，仅见于 Orca 源码；M0 确认生效后启用，解码按「没有这类事件也能工作」来写。
+- **握手顺序**：先发 `control_request(initialize)`，收到应答后再发第一条用户消息。
+- **控制请求**：中断、切换权限模式（`set_permission_mode`）、切换模型（`set_model`）都在同一进程内完成，不重启。
+
+**会话规则**
+
+- 以 `system(init)` 帧里的 `session_id` 为准，与请求的不一致时更新数据库。
+- 续聊前先只读地检查 Claude 的会话文件是否存在；`--resume` 启动失败时退回新建会话，并告知用户上下文没有接上。路径规则没有文档，所以两步都要有。
+- 会话绑定 Worktree 路径：Claude 按目录存放转录，Worktree 换了路径就无法续聊。
+- 分叉（`--fork-session`）列为 P1。
+
+**权限档位**
+
+| 界面档位 | 传给 Claude |
+| :--- | :--- |
+| 沿用我的 Claude 设置（默认） | 不传 `--permission-mode` |
+| 询问 | `default` |
+| 自动接受编辑 | `acceptEdits` |
+| 计划模式 | `plan` |
+| 完全放行 | `bypassPermissions`，每个会话单独确认 |
+
+- `auto` 只在本机 CLI 列出且账号可用时显示。
+- 会话头部始终显示实际生效的模式，避免用户设置里的 `defaultMode` 在不知情的情况下生效。
+- 「询问」档下，已有允许规则命中的操作与只读工具不会经过 Shepherd，档位说明里写明这一点（§3.3.4）。
+
+**仓库信任门**
+
+- 仓库第一次加入 Shepherd 时确认一次，说明该仓库的项目级 hooks 与 MCP 配置会在会话启动时直接生效，Claude 自己不会再问。
+- 按仓库记录，对它的所有 Worktree 生效；记在 Shepherd 的数据库里，不写 `~/.claude.json`。
+- 与脚本信任门（§3.2.3）共用一个弹窗、分开记录：脚本信任随内容哈希失效，仓库信任不随提交变化。
+- 已知缺口：Agent 可以在 Worktree 里修改项目级 hooks，下次会话生效。这与在终端里使用 Claude 的风险相同。
+- 「不信任时以受限方式打开」暂不提供，要等 M0 确认 `--setting-sources user` 确实能挡住项目级 hooks 与 MCP。
+- Codex 是否需要同样的门，由 M0 的无头模式信任验证决定。
+
+**环境变量**
+
+- **基线**：登录 shell 的环境（`ProcessEnvironmentProvider`）。
+- **清掉**：`CLAUDECODE`、`CLAUDE_CODE_ENTRYPOINT` 这类因为 Shepherd 从另一个 Claude 会话或 IDE 终端启动才继承到的变量。`CLAUDE_CODE_ENTRYPOINT` 既不设置也不继承。
+- **不清**：`CLAUDE_CONFIG_DIR`、`ANTHROPIC_API_KEY`、`ANTHROPIC_BASE_URL` 与云厂商相关变量。Orca 清它们是因为自带账号管理；Shepherd 没有账号管理，清掉会在用户不知情时改变账号与计费方式。
+- **改为显示**：会话头部写明生效的登录方式；环境里有 `ANTHROPIC_API_KEY` 时提示一次。
+
+**终端能力在 Native Chat 中的去处**
+
+| 原先靠终端做的事 | 现在的处理 |
+| :--- | :--- |
+| 登录 | 用户事先在自己的终端里登录一次；Shepherd 检测到未登录时给出提示，不代为登录 |
+| 查看用量与限流 | 从每轮的 `result` 帧与 `rate_limit_event` 读取并显示 |
+| 斜杠命令 | 只支持无头模式下可用的部分，清单由 M0 列出；其余在界面上不出现 |
+| 需要真实终端的交互式命令 | `⌘⇧T` 跳系统终端，Shepherd 不跟踪其中的进程 |
+
+**代码体量（粗估，未验证）**
+
+| 部分 | 粗估行数 |
+| :--- | :--- |
+| 传输与控制协议 | 1.5–2.5 千 |
+| 消息解码与事件映射 | 2–3 千 |
+| 启动、会话与环境 | 1–1.5 千 |
+| 权限与三类交互 | 1–1.5 千 |
+
+依据是对官方 Python SDK 协议核心规模的印象（约 3 千行），以及 Orca 在 SDK 之上仍有约 1.3 万行结构化对话代码这一事实。M0 出口用实测替换。
+
+#### 3.1.5 Provider 分层与独立维护（v3 新增）
+
+目标是让每个 Agent 的接入实现可以独立维护，核心不随某个 Agent 的协议变动而改动。做法参照 Magpie（`yetone/magpie`，MIT）的两层插件结构，事实依据见 `01-orca-audit.md` §7.6。
+
+```text
+ShepherdProviderKit（契约包，独立版本号）      ← 核心与 provider 之间唯一的共享面
+├─ 内置 provider：独立 Swift 包，编进 App
+│    ├─ codex            CodexAppServerAdapter
+│    ├─ claude-direct    ClaudeCodeAdapter
+│    └─ acp              ACPClientAdapter（同时是外部 provider 的宿主）
+└─ 外部 provider：独立进程，清单文件 + 说 ACP 的可执行文件
+     ├─ claude-acp       @agentclientprotocol/claude-agent-acp
+     └─ Gemini / OpenCode / 其他 ACP Agent
+```
+
+**第一层：内置 provider**
+
+- 每个 provider 是一个独立的 Swift 包，可以放进独立仓库，有自己的测试与 Golden-file。
+- provider 只依赖契约包 `ShepherdProviderKit`。契约包的内容是 `AgentAdapter`、`AgentEvent`、三类交互、能力声明与启动规格。
+- 核心（`ShepherdCore`、`ShepherdUI`）只依赖契约包，不引用任何具体 provider。只有 App 入口引用各 provider 包并完成注册。
+- 每个 provider 带一份清单：ID、名称、兼容的契约版本范围、能力声明。契约版本不兼容的 provider 不注册，并在诊断页给出原因。
+- 用一个边界测试守住依赖方向：核心不得引用 provider 包，provider 包之间不得互相引用。
+- 这一层解决的是独立维护，不是独立发版：内置 provider 的更新仍随 App 发版，由 Sparkle 推送。
+
+**第二层：外部 provider**
+
+- 外部 provider 是独立进程，协议直接用 ACP，不另造私有协议。ACP 正好定义在宿主与 Agent 之间，并且已有现成生态。
+- 一个外部 provider 由两部分组成：一份清单（启动命令、能力声明、方言差异），和一个说 ACP 的可执行文件。原方案里的 `DialectsRegistry` 即这份清单的注册表。
+- 外部 provider 各自独立发版，Shepherd 不捆绑、不代为安装。
+- 首版只支持用户手动添加，并在添加时确认一次；不做自动安装，也不做插件市场。外部 provider 是以用户权限运行的任意代码。
+
+**与 Magpie 的差别**
+
+- **契约更宽**。Magpie 的 provider 插件只做登录、列模型、发请求，基本无状态。Shepherd 的 provider 是长连接会话，带流式输出、三类交互、权限模式、续聊与进程树。
+- **默认路径不依赖脚本运行时**。Magpie 的社区插件跑在首次使用时才下载的 Bun 上。Shepherd 的默认 provider 必须是原生 Swift：每个会话多一个 Node 或 Bun 进程会多占内存（§1.2 的估算是每会话约 45 MB，未实测），与内存目标冲突。因此外部 provider 只能是可选项。
+- **进程树多一层**。外部 provider 使进程树变成 Shepherd、provider、CLI、工具四层，清理与后代进程跟踪要覆盖到（§3.3.3）。
+
+**契约定版条件**
+
+`ShepherdProviderKit` 在 M0 先以草案存在。至少经 `claude-direct`、`codex` 与一个 ACP Agent 三种实现验证后再定为 1.0，之前允许不兼容修改。
 
 ---
 
@@ -535,7 +641,7 @@ stateDiagram-v2
 1. **无法执行用户本机任意开发工具链**：App Sandbox 禁止应用拉起位于 `/opt/homebrew/bin`、`~/.nvm`、`~/.cargo/bin`、`~/.local/bin` 的外部非沙箱二进制（`git`、`claude`、`codex`、`node`、`python`、`gh`、`go`、`docker` 等），且即使强行启动，子进程会强制继承沙箱限制，无法编译或运行项目代码。
 2. **无法访问用户现有 CLI 登录态与 Git 凭据**：BYOA 模式的核心体验是复用用户已登录的 Claude / Codex / Gemini 凭证（`~/.claude`、`~/.codex`）、SSH 密钥（`~/.ssh`、`SSH_AUTH_SOCK`）与 macOS Git Credential Helper；App Sandbox 会严格阻断对用户家目录隐藏配置文件的访问。
 3. **文件系统跨目录访问受阻**：`git worktree` 需要同时读写主仓库 `.git` 目录与目标 Worktree 目录，且测试脚本会访问全局缓存目录（如 `~/.pnpm-store`、`~/Library/Caches`、`~/.m2`），Security-Scoped Bookmarks 无法覆盖动态派生的外部构建工具访问需求。
-4. **本地 IPC / Hook 受限**：无法在标准路径（如 `~/.shepherd/run/`）暴露 Unix Domain Socket 给外部终端或 Agent Hook 进程通信。
+4. **本地 IPC / Hook 受限**：无法在标准路径（如 `~/.shepherd/run/`）暴露 Unix Domain Socket 给外部命令行工具（如后续的 `shepherd` CLI）通信。
 
 #### 3.3.2 Direct Distribution 签名、公证与更新链路
 - **目标架构与开源协议（已锁定）**：仅构建并分发 **Apple Silicon (`arm64`)** 单一架构（不支持 Intel Mac、不打 Universal Binary）；项目以 **MIT License** 开源发布。
@@ -556,7 +662,7 @@ AI 编程代理在执行测试或启动开发服务器时，往往会派生多�
 
 Shepherd 实施以下防孤儿保障机制（v2 增加第 4 点，并收窄了前三点的覆盖范围表述）：
 1. **强制独立进程组（Process Group Isolation）**：
-   - 所有子进程（Agent CLI、`scripts.setup`、`scripts.archive`、终端抽屉 Shell 及按需启用的 ACP 逃生舱进程）统一通过底层 `posix_spawn` 配合 `POSIX_SPAWN_SETPGROUP`（`pgroup = 0`）启动，使其自身 PID 自动成为全新进程组 ID（`PGID == childPID`），所有后代进程默认继承同一 `PGID`。
+   - 所有子进程（Agent CLI、`scripts.setup`、`scripts.archive` 及外部 provider 进程）统一通过底层 `posix_spawn` 配合 `POSIX_SPAWN_SETPGROUP`（`pgroup = 0`）启动，使其自身 PID 自动成为全新进程组 ID（`PGID == childPID`），所有后代进程默认继承同一 `PGID`。
    - **v2 更正**：「默认继承」不等于「都在组内」。实测 Claude Code 会把 Bash 工具启动的 shell 放进独立进程组，交互式 shell 的前台作业也自成进程组（`01-orca-audit.md` §7.4）。只向 Agent 的进程组发信号覆盖不到它们。
 2. **两阶段优雅终止（Graceful Escalation）**：
    - 会话关闭或 App 正常退出（`applicationWillTerminate`）时，先发送协议级退出请求（关闭 `stdin`），随即向整个进程组发送 `kill(-pgid, SIGTERM)`；
@@ -571,9 +677,11 @@ Shepherd 实施以下防孤儿保障机制（v2 增加第 4 点，并收窄了�
    - 快照以 pid 加启动时间做身份校验，防止 PID 复用后误杀无关进程。
    - 停止前必须先抓快照。根进程退出后，被 reparent 的后代无法再通过父子关系找到（Orca 的做法，见 `01-orca-audit.md` §7.3）。
    - 跟踪存在采样间隙，短命进程或在两次采样之间脱离的进程可能漏掉。验收口径要写明这一点，不再使用「全部后代零残留」的表述。
+   - **v3 补充**：外部 provider 使进程树多一层（Shepherd、provider、CLI、工具）。跟踪从 provider 进程起算，不能假设 Agent CLI 是 Shepherd 的直接子进程。
+   - **v3 补充**：`⌘⇧T` 打开的系统终端不归 Shepherd 管理，其中的进程不在清理范围内。
 
 #### 3.3.4 本地 Socket / IPC 安全与权限审批门控
-- **本地 IPC 安全规范**（用于可选终端 Hook 或内部命令通道）：
+- **本地 IPC 安全规范**（用于内部命令通道）：
   - 仅使用短路径本地 **Unix Domain Socket**（路径 `~/.shepherd/run/shepherd.sock`，规避 macOS `sockaddr_un.sun_path` 104 字节上限及 `Application Support` 路径空格），目录权限严格 `0700`，Socket 文件权限严格 `0600`，**绝不监听公网或 `0.0.0.0` TCP 端口**；
   - 服务端接受连接时通过 `getsockopt(..., SOL_LOCAL, LOCAL_PEERCRED, ...)` 校验对端 UID 必须等于当前 `getuid()`；
   - 每次 App 启动在内存生成 256-bit CSPRNG Bearer Token，写入 `0600` 权限的 `runtime.json` 供授权子进程鉴权，退出时销毁。
@@ -611,8 +719,10 @@ Shepherd 实施以下防孤儿保障机制（v2 增加第 4 点，并收窄了�
 | `transcript_items` | `id`, `turn_id` (FK), `kind` (`thinking` / `text` / `tool_call` / `system`), `payload_json`, `created_at` | 结构化渲染块缓存；附带 **`transcript_fts` (FTS5 虚拟表)** 支持毫秒级全历史搜索 |
 | `approval_logs` | `id`, `session_id` (FK), `turn_id`, `tool_category`, `target_summary`, `risk_level`, `decision`, `decided_at` | 安全操作审计轨迹 |
 | `trusted_hook_hashes` | `id`, `repo_id` (FK), `script_kind` (`setup` / `archive`), `content_sha256`, `approved_at` | `shepherd.yaml` / `orca.yaml` 脚本内容 SHA-256 信任门控历史（支持多分支历史哈希免重复弹窗） |
+| `repo_trust`（v3 新增） | `repo_id` (FK), `trusted_at` | 仓库信任门的记录：用户已确认该仓库的项目级 Agent 配置可以直接生效（§3.1.4） |
+| `external_providers`（v3 新增） | `id`, `manifest_json`, `added_at`, `confirmed_at` | 用户手动添加的外部 provider 清单及其确认记录（§3.1.5） |
 
-> **大对象外置策略**：超过 128 KB 的超长终端日志或原始 Diff 快照不直接存入 SQLite Blob，而是以只读压缩文件存放在 `~/Library/Application Support/Shepherd/blobs/<session_id>/`，数据库仅存路径与字节大小，配合 7 天 / 500 MB LRU 自动清理。
+> **大对象外置策略**：超过 128 KB 的超长工具输出或原始 Diff 快照不直接存入 SQLite Blob，而是以只读压缩文件存放在 `~/Library/Application Support/Shepherd/blobs/<session_id>/`，数据库仅存路径与字节大小，配合 7 天 / 500 MB LRU 自动清理。
 
 ---
 
@@ -627,13 +737,17 @@ Shepherd/
 ├── Helpers/
 │   └── ShepherdReaper/               # 极简 Watchdog 孤儿进程回收助手 (编译打入 Contents/Helpers/)
 └── Packages/
-    ├── ShepherdCore/                 # 领域模型、SessionCoordinator、ApprovalGatekeeper、EnvProvider
-    ├── ShepherdAgents/               # AgentAdapter 协议、CodexAppServer / ClaudeCode / ACPClient、NDJSON 传输层
+    ├── ShepherdProviderKit/          # provider 契约：AgentAdapter、AgentEvent、三类交互、能力声明、启动规格、NDJSON 传输层
+    ├── ShepherdCore/                 # 领域模型、SessionCoordinator、ApprovalGatekeeper、EnvProvider、ProviderRegistry
+    ├── ShepherdProviderCodex/        # 内置 provider `codex`：CodexAppServerAdapter
+    ├── ShepherdProviderClaude/       # 内置 provider `claude-direct`：ClaudeCodeAdapter
+    ├── ShepherdProviderACP/          # 内置 provider `acp`：ACPClientAdapter + 外部 provider 清单加载
     ├── ShepherdGit/                  # WorktreeManager、RepoLockActor、YAML 解析 & SHA-256 门控、GitDiffEngine
     ├── ShepherdStorage/              # GRDB.swift DatabasePool、Migrations、Repositories、FTS5 全文检索
-    ├── ShepherdTerminal/             # P1 极简终端抽屉抽象（首发 SwiftTerm + OSC 7501，预留 GhosttyKit 槽位）
     └── ShepherdUI/                   # SwiftUI 视图 + AppKit 桥接（Diff NSTableView/NSTextView、SplitView）
 ```
+
+> **v3**：原 `ShepherdAgents` 拆成契约包加三个 provider 包，`ShepherdTerminal` 取消。三个 provider 包只依赖 `ShepherdProviderKit`，只被 App 入口引用（§3.1.5）。
 
 ---
 
@@ -653,14 +767,16 @@ Shepherd/
 
 | 风险项 | 影响等级 | 缓解措施 |
 | :--- | :---: | :--- |
-| **Claude Code `stream-json` 控制协议非公开稳定契约变动** | 高 | 1) 解析器采用宽容解码（忽略未知字段，保留原始 JSON 兜底显示）；2) 备用通道待 §3.1.4 对齐（`claude-agent-acp` 依赖 SDK 与 Node，不能视为零成本降级）；3) 建立基于真实抓包回放的协议契约回归测试集。 |
+| **Claude Code `stream-json` 控制协议非公开稳定契约变动** | 高 | 1) 解析器采用宽容解码（忽略未知字段，保留原始 JSON 兜底显示）；2) 备用路径是外部 provider `claude-acp`（依赖 SDK 与 Node，用户自装，切换需新开会话，不能视为零成本降级）；3) 建立基于真实抓包回放的协议契约回归测试集；4) `claude-direct` 独立成包，协议变动的修复不牵动核心（§3.1.5）。 |
 | **macOS GUI 环境缺少用户 Shell `PATH` / 环境变量** | 高 | 启动异步探测用户 Login Shell 环境并持久化缓存，同时支持在设置页查看/手动覆写 `git`、`claude`、`codex` 路径。 |
 | **多 Worktree 并发操作触发 `.git/index.lock` 冲突** | 中 | `WorktreeManager` 强制按 `repoCommonDir` 串行队列执行写拓扑操作（须为显式异步队列，actor 可重入，见 §3.2.3），并在遇到临时锁时执行带抖动的有限次数重试。 |
 | **App 崩溃遗留高负载子进程（孤儿 `vitest`/`cargo`）** | 中 | 全量独立进程组（`POSIX_SPAWN_SETPGROUP`）+ 内嵌 `shepherd-reaper`（`kqueue` 监控主进程退出即时清场）。v2：Agent 自建的进程组不在原设计覆盖范围内，另需后代进程跟踪（§3.3.3 第 4 点）。 |
 | **超大 Diff（> 5,000 行）导致 UI 卡顿** | 中 | 放弃纯 SwiftUI 列表，采用虚拟化 AppKit `NSTableView` + 按可见区域按需语法高亮 + 单文件超大 Diff 自动折叠阈值（默认 > 1,500 行需点击展开）。 |
 | **审批控制范围小于界面承诺（v2 新增）** | 高 | 档位映射 Agent 原生模式；M0 逐驱动验证哪些动作必经 Shepherd；界面如实标注覆盖范围（§3.3.4）。 |
-| **无头模式跳过工作区信任（v2 新增）** | 高 | 待 §3.1.4 第 6 项对齐；M0 验证 Claude 与 Codex 在各自驱动方式下加载项目级配置的行为。 |
-| **`claude -p` 用量政策变动（v2 新增）** | 高 | 见 `04-roadmap-and-engineering.md` §5 R10；保持终端通道可以升为 Claude 主路径。 |
+| **无头模式跳过工作区信任（v2 新增）** | 高 | Shepherd 自设仓库信任门（§3.1.4 第 6 项）；M0 验证 Claude 与 Codex 在各自驱动方式下加载项目级配置的行为。 |
+| **`claude -p` 用量政策变动（v2 新增）** | 高 | v3：接受该风险，产品内不设对冲（终端通道已取消）。出路是 API Key 或外部网关（§7）；会话头部显示登录与计费来源。见 `04-roadmap-and-engineering.md` §5 R10。 |
+| **provider 契约过早定版（v3 新增）** | 中 | `ShepherdProviderKit` 经三种实现验证后再定 1.0（§3.1.5）；provider 清单声明兼容的契约版本范围。 |
+| **外部 provider 的安全与资源开销（v3 新增）** | 中 | 只支持用户手动添加并确认；不自动安装；外部 provider 为可选项，默认路径保持原生 Swift。 |
 | **Chat 长转录渲染性能（v2 新增）** | 中 | M0 Chat 渲染 Spike 选型，不默认采用 SwiftUI 懒加载列表（§2.2）。 |
 
 ---
@@ -670,4 +786,4 @@ Shepherd/
 Shepherd 在底层严格保持「机制与策略分离」，通过两个零侵入扩展点为未来演进留出空间，**本期不做任何具体业务实现**：
 
 1. **子进程环境变量注入管道（`ProcessEnvironmentProvider`）**：所有 Agent 子进程启动前统一经过分层环境合成管线（`LoginShellEnv → RepoConfigEnv → ProfileEnv → ExtensionHook`），并内置敏感 Key 日志脱敏。未来无需修改核心编排架构，即可通过注入标准端点与鉴权变量（如 `ANTHROPIC_BASE_URL` / `OPENAI_BASE_URL` 等）低成本挂载本地模型路由与额度容灾代理网关。
-2. **外挂工具与协议扩展槽（`AgentAdapter` & Local Hook）**：基于统一的 `AgentAdapter` 协议与本地 `0600` Unix Socket 通道，未来可平滑接入外部自动化 Code Review CLI、轻量本地 MCP Server 或社区新兴 ACP Agent，而不影响主客户端的轻量化内核。
+2. **外挂工具扩展槽（本地命令通道）**：基于本地 `0600` Unix Socket 通道，未来可平滑接入外部自动化 Code Review CLI 或轻量本地 MCP Server，而不影响主客户端的轻量化内核。社区 ACP Agent 的接入已不属于预留项：它们按 §3.1.5 作为外部 provider 接入。
