@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:Apps/macOS/macOS.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:Apps/iOS/iOS.xcodeproj">
+   </FileRef>
+   <Group
+      location = "container:Packages"
+      name = "Packages">
+      <FileRef
+         location = "group:ShepherdCore">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdGit">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdModels">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdProviderACP">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdProviderClaude">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdProviderCodex">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdProviderKit">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdRemote">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdStorage">
+      </FileRef>
+      <FileRef
+         location = "group:ShepherdUI">
+      </FileRef>
+   </Group>
+   <FileRef
+      location = "group:Config">
+   </FileRef>
+</Workspace>
