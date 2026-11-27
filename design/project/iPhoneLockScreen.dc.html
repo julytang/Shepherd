@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · iPhone 锁屏通知与实时活动</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#213183}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
+:focus-visible{outline:2px solid #ffffff;outline-offset:2px}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.platter{background:rgba(255,255,255,0.72);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);border:1px solid rgba(255,255,255,0.6);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),rgba(0,0,0,0.08) 0px 14px 28px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
+.tile{width:20px;height:20px;border-radius:6px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+</style>
+</helmet>
+<div style="width:402px;height:874px;position:relative;overflow:hidden;background:#213183;font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:rgba(0,0,0,0.95);-webkit-font-smoothing:antialiased">
+
+<div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none">
+<svg viewBox="0 0 100 100" width="58" height="58" style="position:absolute;left:300px;top:250px;transform:rotate(14deg)"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#dd5b00"></path></svg>
+<svg viewBox="0 0 100 100" width="30" height="30" style="position:absolute;left:44px;top:300px"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#62aef0"></path></svg>
+<svg viewBox="0 0 100 100" width="22" height="22" style="position:absolute;left:190px;top:330px;transform:rotate(-20deg)"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#ff64c8"></path></svg>
+<svg viewBox="0 0 100 100" width="80" height="80" style="position:absolute;left:-20px;top:640px;transform:rotate(-10deg)"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#d6b6f6"></path></svg>
+<svg viewBox="0 0 100 100" width="26" height="26" style="position:absolute;left:340px;top:560px"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#1aae39"></path></svg>
+<div style="position:absolute;left:120px;top:250px;width:6px;height:6px;border-radius:50%;background:#fff;opacity:.6"></div>
+<div style="position:absolute;left:260px;top:370px;width:5px;height:5px;border-radius:50%;background:#fff;opacity:.5"></div>
+<div style="position:absolute;left:80px;top:560px;width:6px;height:6px;border-radius:50%;background:#fff;opacity:.5"></div>
+</div>
+
+<div style="position:absolute;top:96px;left:0;right:0;display:flex;flex-direction:column;align-items:center;color:#ffffff">
+<span style="font-size:20px;line-height:1.4;font-weight:600">11月26日 星期四</span>
+<span style="font-size:96px;line-height:1;font-weight:700;letter-spacing:-3px">21:34</span>
+</div>
+
+<div style="position:absolute;left:12px;right:12px;top:380px;display:flex;flex-direction:column;gap:8px">
+<div role="group" aria-label="Shepherd 通知" class="platter" style="border-radius:26px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+<span aria-hidden="true" style="width:38px;height:38px;border-radius:10px;background:#213183;color:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25)"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" style="stroke-width:2.4"><path d="M9 21V9a4 4 0 1 1 8 0v1"></path></svg><svg viewBox="0 0 100 100" width="12" height="12" style="position:absolute;right:3px;top:3px"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#dd5b00"></path></svg></span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:baseline;gap:8px"><span style="flex:1;font-size:15px;font-weight:600">等你批准 · feat/oauth-pkce</span><span style="font-size:12px;color:#615d59">现在</span></div>
+<span style="font-size:14px;line-height:1.43;color:#31302e">api-server · Claude 请求运行：</span>
+<span class="mono" style="font-size:12.5px;line-height:1.5;color:#31302e">go test ./internal/auth/... -v -race</span>
+</div>
+</div>
+<div role="menu" aria-label="通知操作" class="platter" style="align-self:flex-end;width:250px;border-radius:22px;padding:6px;display:flex;flex-direction:column">
+<button role="menuitem" style="height:48px;padding:0 14px;border-radius:16px;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:500"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"></path></svg>打开查看</button>
+<span aria-hidden="true" style="height:1px;margin:0 14px;background:rgba(0,0,0,0.08)"></span>
+<button role="menuitem" style="height:48px;padding:0 14px;border-radius:16px;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:500"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg>30 分钟后提醒</button>
+<span style="padding:6px 14px 8px;font-size:12px;line-height:1.33;color:#615d59">锁屏上不提供批准，需打开 App 看完整上下文。</span>
+</div>
+</div>
+
+<div role="group" aria-label="Shepherd 实时活动" class="platter" style="position:absolute;left:12px;right:12px;bottom:40px;border-radius:30px;padding:16px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:10px">
+<span aria-hidden="true" style="width:28px;height:28px;border-radius:8px;background:#213183;color:#fff;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" style="stroke-width:2.4"><path d="M9 21V9a4 4 0 1 1 8 0v1"></path></svg></span>
+<span style="flex:1;font-size:15px;font-weight:600">Shepherd · MacBook Pro</span>
+<span style="height:26px;padding:0 10px;border-radius:9999px;background:#dd5b00;color:#fff;font-size:12px;font-weight:600;display:inline-flex;align-items:center">3 个等你处理</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:10px;font-size:14px"><span class="dot" style="background:#1aae39"></span><span style="flex:1;font-weight:500">perf/orders-n-plus-1</span><span style="color:#615d59">跑测试 · 1:20</span><span class="tile" style="background:#2a9d99;color:#fff">X</span></div>
+<div style="display:flex;align-items:center;gap:10px;font-size:14px"><span class="dot" style="background:#1aae39"></span><span style="flex:1;font-weight:500">test/oauth-callback-errors</span><span style="color:#615d59">setup 脚本</span><span class="tile" style="background:#dd5b00;color:#fff">C</span></div>
+</div>
+<div aria-hidden="true" style="display:flex;gap:4px">
+<span style="flex:3;height:6px;border-radius:3px;background:#dd5b00"></span>
+<span style="flex:2;height:6px;border-radius:3px;background:#1aae39"></span>
+<span style="flex:1;height:6px;border-radius:3px;background:#0075de"></span>
+</div>
+<div style="display:flex;gap:16px;font-size:12px;font-weight:600;letter-spacing:.125px;color:#31302e"><span>等你处理 3</span><span>运行中 2</span><span>已完成 1</span></div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":402,"height":874}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · iPhone Duo 内屏</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--ov:rgba(0,0,0,0.05);--link:#0075de;--needInk:#793400;--needBg:rgba(221,91,0,0.08);--selBg:rgba(0,117,222,0.10);--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--ov:rgba(255,255,255,0.08);--link:#62aef0;--needInk:#f2a464;--needBg:rgba(221,91,0,0.16);--selBg:rgba(0,117,222,0.26);--glass:rgba(44,43,41,0.58);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);color-scheme:dark}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
+textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #0075de;outline-offset:2px}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glassEdge);box-shadow:inset 0 1px 0 var(--glassHi),rgba(0,0,0,0.04) 0px 4px 18px,rgba(0,0,0,0.027) 0px 2.025px 7.847px}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.icb{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-s{height:44px;padding:0 18px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;white-space:nowrap;background:var(--surface);box-shadow:inset 0 0 0 1px var(--hair),rgba(0,0,0,0.04) 0px 4px 18px}
+.btn-u{height:44px;padding:4px 16px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;white-space:nowrap;background:var(--surface);border:1px solid var(--hair)}
+.chip{height:26px;padding:0 10px;border-radius:9999px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;letter-spacing:.125px;background:var(--ov);color:var(--ink2);white-space:nowrap}
+.row{width:100%;min-height:58px;display:flex;align-items:center;gap:12px;padding:8px 12px 8px 14px;border-radius:12px;position:relative}
+.row-t{font-size:16px;line-height:22px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-s{font-size:14px;line-height:18px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile{width:22px;height:22px;border-radius:6px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.need{width:18px;height:18px;border-radius:50%;background:#dd5b00;color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(26,174,57,0.5)}70%{box-shadow:0 0 0 6px rgba(26,174,57,0)}100%{box-shadow:0 0 0 0 rgba(26,174,57,0)}}
+.pulse{animation:pulse 1.8s ease-out infinite}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+</helmet>
+<div class="th {{themeClass}}" style="width:951px;height:669px;position:relative;overflow:hidden;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased">
+
+<nav aria-label="仓库与 Worktree" class="glass" style="position:absolute;left:8px;top:8px;bottom:8px;width:296px;border-radius:16px;display:flex;flex-direction:column;z-index:4">
+<div style="padding:16px 10px 4px 18px;display:flex;align-items:center;gap:8px">
+<h1 style="margin:0;flex:1;font-size:26px;line-height:1.23;font-weight:700;letter-spacing:-0.625px">Shepherd</h1>
+<button aria-label="收起侧边栏" class="icb" style="color:var(--muted)"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M9 4v16"></path></svg></button>
+</div>
+<div style="padding:0 18px 10px;display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)">
+<svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2 19h20"></path></svg>
+<span style="flex:1">MacBook Pro</span><span class="dot" style="width:8px;height:8px;background:#1aae39"></span><span>已连接</span>
+</div>
+<div style="padding:0 14px 6px"><div style="display:flex;padding:3px;border-radius:9999px;background:var(--ov)">
+<span style="flex:1;height:36px;border-radius:9999px;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;background:var(--surface);box-shadow:rgba(0,0,0,0.08) 0px 1px 3px">全部</span>
+<span style="flex:1;height:36px;font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px">等你处理<span style="min-width:22px;height:22px;padding:0 6px;border-radius:9999px;background:#dd5b00;color:#fff;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center">3</span></span>
+</div></div>
+<div style="flex:1;min-height:0;overflow:hidden;padding:0 8px">
+<div class="eyebrow" style="padding:10px 10px 6px;color:var(--muted)">api-server</div>
+<div class="row" style="background:var(--selBg)"><span aria-hidden="true" style="position:absolute;left:4px;top:12px;bottom:12px;width:3px;border-radius:2px;background:#dd5b00"></span><span class="need" aria-hidden="true">!</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span class="row-t">feat/oauth-pkce</span><span class="row-s" style="color:var(--needInk)">等你处理 · Shell 命令</span></span><span class="tile" style="background:#dd5b00;color:#fff">C</span></div>
+<div class="row" style="background:var(--needBg);margin-top:2px"><span aria-hidden="true" style="position:absolute;left:4px;top:12px;bottom:12px;width:3px;border-radius:2px;background:#dd5b00"></span><span class="need" aria-hidden="true">?</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span class="row-t">fix/rate-limit</span><span class="row-s" style="color:var(--needInk)">等你处理 · 问题</span></span><span class="tile" style="background:#2a9d99;color:#fff">X</span></div>
+<div class="row" style="margin-top:2px"><span style="width:18px;display:flex;justify-content:center"><span class="dot" style="background:#0075de"></span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span class="row-t">chore/sql-index</span><span class="row-s">已完成 · PR #84</span></span><span class="tile" style="background:#dd5b00;color:#fff">C</span></div>
+<div class="row" style="margin-top:2px"><span style="width:18px;display:flex;justify-content:center"><span class="dot pulse" style="background:#1aae39"></span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span class="row-t">perf/orders-n-plus-1</span><span class="row-s">运行中 · 1 分 20 秒</span></span><span class="tile" style="background:#2a9d99;color:#fff">X</span></div>
+<div class="eyebrow" style="padding:10px 10px 6px;color:var(--muted)">shepherd-mac</div>
+<div class="row"><span aria-hidden="true" style="width:18px;height:18px;border-radius:5px;background:#ff64c8;color:#391c57;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">×</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span class="row-t">fix/notify-dedupe</span><span class="row-s">出错 · 429 额度上限</span></span><span class="tile" style="background:#dd5b00;color:#fff">C</span></div>
+</div>
+<div style="padding:8px 12px 12px">
+<label style="height:44px;border-radius:10px;background:var(--ov);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--muted);font-size:16px"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.5 4.5"></path></svg><input aria-label="搜索会话" placeholder="搜索" style="flex:1;border:0;background:transparent;font:inherit;color:var(--ink);outline-offset:4px"></label>
+</div>
+</nav>
+
+<div aria-hidden="true" title="系统区域：竖排状态栏（内屏摄像头在屏下，平时不可见）" style="position:absolute;top:40px;right:14px;width:60px;display:flex;flex-direction:column;align-items:center;gap:4px;z-index:5;pointer-events:none">
+<span style="font-size:15px;line-height:20px;font-weight:600">21:34</span>
+<svg class="ic" viewBox="0 0 24 24" width="34" height="34" style="stroke-width:1.6"><circle cx="12" cy="12" r="10.5"></circle><path d="M7.4 11.2a6.6 6.6 0 0 1 9.2 0M9.4 13.6a3.7 3.7 0 0 1 5.2 0"></path><circle cx="12" cy="16.2" r="0.9" style="fill:currentColor"></circle></svg>
+</div>
+<div aria-label="竖条：详情视图的工具栏（系统给出的 trailing 边）" style="position:absolute;top:128px;right:14px;width:60px;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:5">
+<div class="glass" style="width:60px;border-radius:9999px;padding:4px;display:flex;flex-direction:column;gap:2px;align-items:center">
+<button aria-label="在 Mac 上用 Cursor 打开" class="icb" style="width:50px;height:50px"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"></path></svg></button>
+<button aria-label="Diff，3 个文件" class="icb" style="width:50px;height:50px;position:relative"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"></rect><path d="M12 3.5v17M7.5 8.5v4M5.5 10.5h4M14.5 10.5h4"></path></svg><span aria-hidden="true" style="position:absolute;top:3px;right:1px;min-width:18px;height:18px;padding:0 5px;border-radius:9999px;background:var(--ink2);color:var(--canvas);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">3</span></button>
+<button aria-label="更多" class="icb" style="width:50px;height:50px"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="6" cy="12" r="1.6" fill="currentColor"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor"></circle><circle cx="18" cy="12" r="1.6" fill="currentColor"></circle></svg></button>
+</div>
+</div>
+<main style="position:absolute;left:312px;top:0;right:88px;bottom:0">
+<div style="position:absolute;inset:0;padding:112px 24px 96px;display:flex;flex-direction:column;justify-content:flex-end">
+<div style="max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px">
+<div style="align-self:flex-end;max-width:85%;background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:10px 14px;font-size:16px;line-height:1.5">把 OAuth 登录流程切到 PKCE，并补齐 callback 异常单测。</div>
+<div style="background:var(--surface);border:1px solid var(--hair);border-radius:12px;display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="color:var(--muted)"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path></svg><span style="font-size:15px;font-weight:500;flex:1">已探索 4 个文件 · 编辑 2 个文件</span><span class="mono" style="font-size:12px;color:var(--ink2)">+127 −19</span><button class="btn-u" style="height:40px">查看 Diff</button></div>
+<div style="background:var(--surface);border:1.5px solid #dd5b00;border-radius:20px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--needBg)"><span class="need" aria-hidden="true">!</span><span class="eyebrow" style="color:var(--needInk);flex:1">等你处理 · Shell 命令</span><span class="eyebrow" style="color:var(--muted)">21:34</span></div>
+<div style="padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px">
+<div class="mono" style="font-size:13.5px;line-height:1.5;background:var(--canvas);border-radius:8px;padding:10px 12px">$ go test ./internal/auth/... -v -race</div>
+<div style="font-size:14px;line-height:1.43;color:var(--muted)">在 Mac 上执行。只有 Claude 发来请求的操作会出现在这里，已放行的操作不经过 Shepherd。</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap">
+<button class="glass-tint" style="height:44px;padding:0 20px;border-radius:9999px;font-size:16px;font-weight:500">允许一次</button>
+<button class="btn-s">本会话允许同类操作</button>
+<button class="btn-u">拒绝…</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:130px;pointer-events:none;background:linear-gradient(var(--canvas) 45%,color-mix(in srgb,var(--canvas) 80%,transparent) 70%,transparent)"></div>
+<header style="position:absolute;top:20px;left:20px;right:20px;height:48px;display:flex;align-items:center;gap:10px">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:17px;line-height:22px;font-weight:600">feat/oauth-pkce</span><span class="eyebrow" style="color:var(--muted)">api-server · Claude Code · +142 −28</span></div>
+</header>
+<div style="position:absolute;top:74px;left:0;right:0;display:flex;justify-content:center;padding:0 24px"><div style="width:100%;max-width:560px;display:flex;gap:6px;flex-wrap:wrap"><span class="chip">claude-direct</span><span class="chip">Sonnet</span><span class="chip">订阅登录 · 订阅额度</span><span class="chip">权限：询问</span></div></div>
+<div style="position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center;padding:0 24px">
+<div class="glass" style="width:100%;max-width:560px;border-radius:24px;padding:4px 4px 4px 6px;display:flex;align-items:center;gap:4px">
+<button aria-label="添加文件或图片" class="icb" style="color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<label for="duo-in-composer" class="sr">给 Agent 的下一条指令</label>
+<textarea id="duo-in-composer" rows="1" placeholder="输入下一条指令…" style="flex:1;resize:none;border:0;background:transparent;font-size:16px;line-height:1.5;padding:10px 4px;min-height:44px"></textarea>
+<button aria-label="发送" class="glass-tint icb"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="stroke-width:2.2"><path d="M12 19V5M6 11l6-6 6 6"></path></svg></button>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["浅色","深色"],"default":"深色","section":"外观"},"$preview":{"width":951,"height":669}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { themeClass: (this.props.appearance ?? '深色') === '深色' ? 'dk' : '' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "shepherd-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shepherd Companion 的中继与推送网关",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "relay": "node src/relay/index.ts",
+    "push": "node src/push/index.ts"
+  }
+}

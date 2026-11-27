@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · iPhone 绑定 Mac</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--ov:rgba(0,0,0,0.05);--link:#0075de;--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);--dim:rgba(0,0,0,0.2);--warnInk:#793400;--warnBg:rgba(221,91,0,0.12);color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--ov:rgba(255,255,255,0.08);--link:#62aef0;--glass:rgba(44,43,41,0.58);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);--dim:rgba(0,0,0,0.45);--warnInk:#f2a464;--warnBg:rgba(221,91,0,0.2);color-scheme:dark}
+*{box-sizing:border-box}
+a{color:var(--link);text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid #0075de;outline-offset:2px}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glassEdge);box-shadow:inset 0 1px 0 var(--glassHi),rgba(0,0,0,0.04) 0px 4px 18px,rgba(0,0,0,0.027) 0px 2.025px 7.847px}
+.glass-dark{background:rgba(255,255,255,0.16);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.22);color:#fff}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.glass-tint:active{background:#005bab}
+.big{height:52px;border-radius:9999px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;font-weight:500;width:100%}
+.icb{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.proto{height:40px;padding:0 14px;border-radius:12px;border:1.5px dashed currentColor;font-size:14px;display:inline-flex;align-items:center;justify-content:center;opacity:.8}
+.group{background:var(--surface);border:1px solid var(--hair);border-radius:20px;overflow:hidden}
+.lrow{min-height:52px;display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--hair);font-size:16px}
+.lrow:last-child{border-bottom:0}
+.sw{width:51px;height:31px;border-radius:9999px;position:relative;flex-shrink:0}
+.sw span{position:absolute;top:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.2)}
+.res{position:absolute;inset:0;padding:150px 24px 34px;display:flex;flex-direction:column;gap:14px}
+.res h1{margin:6px 0 0;font-size:28px;line-height:1.2;font-weight:700;letter-spacing:-0.5px}
+.res p{margin:0;font-size:16px;line-height:1.5;color:var(--ink2)}
+.badge{width:64px;height:64px;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</helmet>
+<div class="th {{themeClass}}" style="width:402px;height:874px;position:relative;overflow:hidden;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased">
+
+<sc-if value="{{onIntro}}" hint-placeholder-val="{{true}}">
+<div style="position:absolute;inset:0;padding:62px 24px 34px;display:flex;flex-direction:column">
+<div aria-hidden="true" style="position:relative;height:250px;margin:8px -8px 0">
+<div style="position:absolute;left:18px;top:30px;width:120px;height:120px;border-radius:50%;background:#62aef0;opacity:.9"></div>
+<svg viewBox="0 0 100 100" width="62" height="62" style="position:absolute;right:30px;top:6px"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#dd5b00"></path></svg>
+<div style="position:absolute;right:56px;bottom:18px;width:70px;height:70px;border-radius:18px;background:#d6b6f6;transform:rotate(12deg)"></div>
+<div style="position:absolute;left:62px;top:52px;width:210px;height:138px;border-radius:12px;background:var(--surface);border:2px solid var(--ink2);display:flex;align-items:center;justify-content:center">
+<svg viewBox="-2 -2 29 29" width="78" height="78" style="shape-rendering:crispEdges"><rect x="-2" y="-2" width="29" height="29" fill="#ffffff"></rect><path d="{{qrPath}}" fill="#000000"></path></svg>
+</div>
+<div style="position:absolute;left:40px;top:190px;width:254px;height:10px;border-radius:0 0 8px 8px;background:var(--ink2)"></div>
+<div style="position:absolute;left:236px;top:96px;width:72px;height:132px;border-radius:16px;background:var(--surface);border:2px solid var(--ink2);display:flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="28" height="28" style="color:#0075de"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M4 12h16"></path></svg></div>
+</div>
+<h1 style="margin:20px 0 10px;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-1px">连接你的 Mac</h1>
+<p style="margin:0 0 20px;font-size:16px;line-height:1.5;color:var(--ink2)">Agent 只在 Mac 上运行。连上之后，可以在这台设备上看进度、审批与作答、审查 Diff、派发新任务。</p>
+<ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+<li style="display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.43"><span style="width:24px;height:24px;border-radius:50%;background:var(--ov);font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">1</span><span>在 Mac 上打开 Shepherd，进入「设置 › 设备」，点「绑定新设备…」</span></li>
+<li style="display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.43"><span style="width:24px;height:24px;border-radius:50%;background:var(--ov);font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">2</span><span>用这台设备扫描 Mac 上的二维码</span></li>
+<li style="display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.43"><span style="width:24px;height:24px;border-radius:50%;background:var(--ov);font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">3</span><span>核对两边的 6 位验证码，在 Mac 上确认</span></li>
+</ol>
+<span style="flex:1"></span>
+<button onClick="{{goScan}}" class="glass-tint big">扫描二维码</button>
+<p style="margin:12px 0 0;text-align:center;font-size:14px;line-height:1.43;color:var(--muted)">经中继连接，内容端到端加密。不需要账号。</p>
+</div>
+</sc-if>
+
+<sc-if value="{{onScan}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;background:#121211;color:#ffffff">
+<div aria-hidden="true" style="position:absolute;left:-40px;right:-40px;top:250px;height:330px;border-radius:24px;background:rgba(255,255,255,0.07);transform:rotate(-4deg)"></div>
+<div aria-hidden="true" style="position:absolute;left:111px;top:300px;width:180px;height:180px;background:#ffffff;border-radius:8px;display:flex;align-items:center;justify-content:center;transform:rotate(-4deg)">
+<svg viewBox="-2 -2 29 29" width="160" height="160" style="shape-rendering:crispEdges"><path d="{{qrPath}}" fill="#000000"></path></svg>
+</div>
+<div aria-hidden="true" style="position:absolute;left:71px;top:260px;width:260px;height:260px">
+<span style="position:absolute;left:0;top:0;width:44px;height:44px;border-left:4px solid #fff;border-top:4px solid #fff;border-top-left-radius:20px"></span>
+<span style="position:absolute;right:0;top:0;width:44px;height:44px;border-right:4px solid #fff;border-top:4px solid #fff;border-top-right-radius:20px"></span>
+<span style="position:absolute;left:0;bottom:0;width:44px;height:44px;border-left:4px solid #fff;border-bottom:4px solid #fff;border-bottom-left-radius:20px"></span>
+<span style="position:absolute;right:0;bottom:0;width:44px;height:44px;border-right:4px solid #fff;border-bottom:4px solid #fff;border-bottom-right-radius:20px"></span>
+</div>
+<header style="position:absolute;top:62px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button onClick="{{goIntro}}" aria-label="关闭" class="glass-dark icb"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+<span style="flex:1;text-align:center;font-size:17px;font-weight:600">扫描二维码</span>
+<span style="width:44px"></span>
+</header>
+<sc-if value="{{scanExpired}}" hint-placeholder-val="{{false}}">
+<div role="status" class="glass-dark" style="position:absolute;top:126px;left:16px;right:16px;border-radius:18px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;background:rgba(30,29,28,0.72)">
+<svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="color:#f2a464;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">这个二维码已过期</span><span style="font-size:14px;line-height:1.43;color:rgba(255,255,255,0.78)">在 Mac 上生成新的二维码，再扫一次。</span></span>
+</div>
+</sc-if>
+<p style="position:absolute;left:32px;right:32px;top:548px;margin:0;text-align:center;font-size:16px;line-height:1.5">对准 Mac 上「绑定设备」窗口里的二维码</p>
+<p style="position:absolute;left:32px;right:32px;top:600px;margin:0;text-align:center;font-size:14px;line-height:1.43;color:rgba(255,255,255,0.72)">识别后会自动继续。二维码只能用一次，过期后在 Mac 上点「刷新」。</p>
+<div style="position:absolute;left:0;right:0;bottom:44px;display:flex;flex-direction:column;align-items:center;gap:16px">
+<div style="display:flex;gap:10px">
+<button onClick="{{goVerify}}" class="proto" style="color:#ffffff">原型：模拟识别成功</button>
+<button onClick="{{showExpired}}" class="proto" style="color:#ffffff">原型：扫到过期的</button>
+</div>
+<button aria-label="打开手电筒" class="glass-dark" style="width:56px;height:56px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 3h8l-1 6H9z"></path><path d="M9 9h6v12H9z"></path><path d="M12 13v3"></path></svg></button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{onVerify}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;padding:120px 24px 34px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:20px;background:var(--surface);border:1px solid var(--hair)">
+<span aria-hidden="true" style="width:40px;height:40px;border-radius:10px;background:var(--ov);display:inline-flex;align-items:center;justify-content:center;color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2 19h20"></path></svg></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:16px;font-weight:600">July 的 MacBook Pro</span><span class="mono" style="font-size:12.5px;color:var(--muted)">relay.shepherd.inorbit.top</span></span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 12px;border-radius:24px;background:var(--surface);border:1px solid var(--hair)">
+<span class="eyebrow" style="color:var(--muted)">验证码</span>
+<span aria-label="验证码 4 8 2 9 1 3" style="font-size:52px;line-height:1.05;font-weight:700;letter-spacing:6px;font-feature-settings:'tnum'">482 913</span>
+</div>
+<p style="margin:0;font-size:16px;line-height:1.5;color:var(--ink2)">Mac 上会显示同样的 6 位数字。核对一致后，在 Mac 上点「确认绑定」。如果不一致，点「取消」。</p>
+<div role="status" style="display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted)">
+<svg class="ic spin" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9"></path></svg>等待在 Mac 上确认…
+</div>
+<span style="flex:1"></span>
+<div style="display:flex;gap:10px;align-self:center">
+<button onClick="{{goDone}}" class="proto" style="color:var(--muted)">原型：模拟 Mac 已确认</button>
+<button onClick="{{goRejected}}" class="proto" style="color:var(--muted)">原型：模拟 Mac 拒绝</button>
+</div>
+</div>
+<div aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:120px;pointer-events:none;background:linear-gradient(var(--canvas) 60%,transparent)"></div>
+<header style="position:absolute;top:62px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button onClick="{{goIntro}}" class="glass" style="height:44px;padding:0 16px;border-radius:9999px;font-size:16px;font-weight:500">取消</button>
+<span style="flex:1;text-align:center;font-size:17px;font-weight:600">核对验证码</span>
+<span style="width:72px"></span>
+</header>
+</sc-if>
+
+<sc-if value="{{onDone}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;padding:180px 24px 34px;display:flex;flex-direction:column;gap:16px">
+<span aria-hidden="true" style="width:64px;height:64px;border-radius:16px;background:rgba(26,174,57,0.14);color:#1aae39;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="34" height="34" style="stroke-width:2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+<h1 style="margin:8px 0 0;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-1px">已连接到 July 的 MacBook Pro</h1>
+<p style="margin:0;font-size:16px;line-height:1.5;color:var(--ink2)">现在可以在这台设备上查看会话、处理审批。需要你处理时会收到通知，内容在这台设备上解密后显示。</p>
+<span style="flex:1"></span>
+<a href="iPhoneFlow.dc.html" class="glass-tint big">开始使用</a>
+</div>
+</sc-if>
+
+<sc-if value="{{onDenied}}" hint-placeholder-val="{{false}}">
+<div class="res">
+<span class="badge" aria-hidden="true" style="background:var(--ov);color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="32" height="32"><path d="M4 8.5h3L8.8 6h6.4L17 8.5h3V19H4z"></path><circle cx="12" cy="13.5" r="3.2"></circle><path d="M3 3l18 18"></path></svg></span>
+<h1>Shepherd 没有相机权限</h1>
+<p>扫描 Mac 上的绑定二维码要用到相机。之前没有允许，可以在「设置」里打开，然后回到这里继续。</p>
+<p style="font-size:14px;line-height:1.43;color:var(--muted)">位置：设置 › Shepherd › 相机</p>
+<span style="flex:1"></span>
+<button class="glass-tint big">打开设置</button>
+</div>
+<header style="position:absolute;top:62px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button onClick="{{goIntro}}" aria-label="关闭" class="glass icb"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+<span style="flex:1;text-align:center;font-size:17px;font-weight:600">扫描二维码</span>
+<span style="width:44px"></span>
+</header>
+</sc-if>
+
+<sc-if value="{{onRelayDown}}" hint-placeholder-val="{{false}}">
+<div class="res">
+<span class="badge" aria-hidden="true" style="background:var(--warnBg);color:var(--warnInk)"><svg class="ic" viewBox="0 0 24 24" width="32" height="32"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.3 4.6 4.6 0 0 0 7 18.5z"></path><path d="M3.5 3.5l17 17"></path></svg></span>
+<h1>连不上中继</h1>
+<p>二维码已识别，但连不上它指定的中继。请检查这台设备的网络；如果 Mac 用的是自建中继，确认它在运行。</p>
+<dl style="margin:0;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--hair);display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:6px;font-size:14px;line-height:1.43">
+<dt style="color:var(--muted)">中继</dt><dd class="mono" style="margin:0;font-size:13px">relay.shepherd.inorbit.top</dd>
+<dt style="color:var(--muted)">Mac</dt><dd style="margin:0">July 的 MacBook Pro</dd>
+</dl>
+<p style="font-size:14px;line-height:1.43;color:var(--muted)">二维码过期前重试都有效。</p>
+<span style="flex:1"></span>
+<button onClick="{{goVerify}}" class="glass-tint big">重试</button>
+</div>
+<header style="position:absolute;top:62px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button onClick="{{goIntro}}" class="glass" style="height:44px;padding:0 16px;border-radius:9999px;font-size:16px;font-weight:500">取消</button>
+<span style="flex:1"></span>
+</header>
+</sc-if>
+
+<sc-if value="{{onRejected}}" hint-placeholder-val="{{false}}">
+<div class="res">
+<span class="badge" aria-hidden="true" style="background:var(--ov);color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="32" height="32"><circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path></svg></span>
+<h1>Mac 没有确认这次绑定</h1>
+<p>Mac 上选择了「不是这台设备」，或者关掉了绑定窗口。这个二维码已作废，这台设备没有获得任何访问权限。</p>
+<p>要继续绑定，在 Mac 上生成新的二维码，再扫一次。</p>
+<span style="flex:1"></span>
+<button onClick="{{goScan}}" class="glass-tint big">重新扫描</button>
+</div>
+<header style="position:absolute;top:62px;left:16px;right:16px;height:48px;display:flex;align-items:center;gap:10px">
+<button onClick="{{goIntro}}" aria-label="关闭" class="glass icb"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+<span style="flex:1"></span>
+</header>
+</sc-if>
+
+<sc-if value="{{onRevoked}}" hint-placeholder-val="{{false}}">
+<div class="res" style="padding-top:120px">
+<span class="badge" aria-hidden="true" style="background:var(--ov);color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="32" height="32"><path d="M10 14.5 8 16.5a3.2 3.2 0 0 1-4.5-4.5l2.5-2.5"></path><path d="M14 9.5l2-2a3.2 3.2 0 0 1 4.5 4.5L18 14.5"></path><path d="M8 3.5V6M3.5 8H6M16 20.5V18M20.5 16H18"></path></svg></span>
+<h1>已从 July 的 MacBook Pro 解绑</h1>
+<p>Mac 上解绑了这台设备，或者重置了这台 Mac 的密钥。这台设备上缓存的会话已清除，也不会再收到它的通知。</p>
+<p>要继续使用，在 Mac 上重新绑定。</p>
+<span style="flex:1"></span>
+<button onClick="{{goIntro}}" class="glass-tint big">重新绑定</button>
+</div>
+</sc-if>
+
+<sc-if value="{{onSettings}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;overflow:hidden;padding:62px 16px 130px;display:flex;flex-direction:column;gap:10px">
+<h1 style="margin:0;padding:4px 4px 6px;font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-1px">设置</h1>
+<div class="eyebrow" style="padding:8px 4px 0;color:var(--muted)">已连接的 Mac</div>
+<div class="group">
+<div class="lrow" style="min-height:68px">
+<span aria-hidden="true" style="width:40px;height:40px;border-radius:10px;background:var(--ov);display:inline-flex;align-items:center;justify-content:center;color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2 19h20"></path></svg></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">July 的 MacBook Pro</span><span style="font-size:14px;color:var(--muted)">macOS 27.2 · Shepherd 0.1.0</span></span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)"><span class="dot" style="background:#1aae39"></span>在线</span>
+</div>
+<div class="lrow"><span style="flex:1">中继</span><span class="mono" style="font-size:13px;color:var(--muted)">relay.shepherd.inorbit.top</span></div>
+<div class="lrow"><span style="flex:1">这台设备的名称</span><span style="color:var(--muted)">July 的 iPhone</span><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:var(--faint)"><path d="m9 6 6 6-6 6"></path></svg></div>
+<button onClick="{{askUnbind}}" class="lrow" style="width:100%;font-weight:500">解绑这台设备…</button>
+</div>
+<p style="margin:0 4px;font-size:14px;line-height:1.43;color:var(--muted)">解绑后要在 Mac 上重新绑定。也可以在 Mac 的「设置 › 设备」里解绑。</p>
+<div class="eyebrow" style="padding:10px 4px 0;color:var(--muted)">通知</div>
+<div class="group">
+<div class="lrow"><span style="flex:1">等你处理时通知</span><button onClick="{{toggleNeed}}" role="switch" aria-checked="{{notifyNeed}}" aria-label="等你处理时通知" class="sw" style="background:{{needBg}}"><span style="left:{{needKnob}}"></span></button></div>
+<div class="lrow"><span style="flex:1">任务完成时通知</span><button onClick="{{toggleDone}}" role="switch" aria-checked="{{notifyDone}}" aria-label="任务完成时通知" class="sw" style="background:{{doneBg}}"><span style="left:{{doneKnob}}"></span></button></div>
+</div>
+<p style="margin:0 4px;font-size:14px;line-height:1.43;color:var(--muted)">通知内容在这台设备上解密后显示。锁屏上不能直接批准，要打开 App 看完整上下文。</p>
+</div>
+
+<div aria-hidden="true" style="position:absolute;bottom:0;left:0;right:0;height:140px;pointer-events:none;background:linear-gradient(transparent,color-mix(in srgb,var(--canvas) 85%,transparent) 55%,var(--canvas))"></div>
+<nav aria-label="标签栏" style="position:absolute;left:16px;right:16px;bottom:30px;display:flex;gap:10px;align-items:center">
+<div class="glass" style="flex:1;height:64px;border-radius:9999px;display:flex;padding:4px">
+<button style="flex:1;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 13h5l1.5 3h5L16 13h5"></path><path d="M5.5 5h13l2.5 8v6H3v-6z"></path></svg><span style="font-size:12px;font-weight:600">等你处理</span></button>
+<button style="flex:1;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink2)"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg><span style="font-size:12px;font-weight:600">全部会话</span></button>
+<button aria-current="page" style="flex:1;border-radius:9999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov);color:var(--link)"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg><span style="font-size:12px;font-weight:600">设置</span></button>
+</div>
+<button aria-label="搜索" class="glass" style="width:64px;height:64px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.5 4.5"></path></svg></button>
+</nav>
+
+<sc-if value="{{unbindAsk}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;background:var(--dim)"></div>
+<div role="alertdialog" aria-modal="true" aria-labelledby="ub-t" style="position:absolute;left:8px;right:8px;bottom:8px;display:flex;flex-direction:column;gap:8px">
+<div class="glass" style="border-radius:28px;overflow:hidden;background:var(--surface)">
+<div style="padding:16px 20px 12px;text-align:center;display:flex;flex-direction:column;gap:4px">
+<span id="ub-t" style="font-size:15px;font-weight:600">解绑这台设备？</span>
+<span style="font-size:14px;line-height:1.43;color:var(--muted)">会断开与 July 的 MacBook Pro 的连接，并清除这台设备上的会话缓存。</span>
+</div>
+<button onClick="{{confirmUnbind}}" style="width:100%;height:56px;border-top:1px solid var(--hair);font-size:17px;font-weight:600">解绑</button>
+</div>
+<button onClick="{{cancelUnbind}}" class="glass" style="height:56px;border-radius:28px;font-size:17px;font-weight:600;color:var(--link);background:var(--surface)">取消</button>
+</div>
+</sc-if>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"step":{"editor":"enum","options":["未绑定","扫码","核对","已连接的 Mac","相机权限被拒","二维码已过期","连不上中继","绑定被拒绝","已被解绑"],"default":"未绑定","section":"原型"},"appearance":{"editor":"enum","options":["浅色","深色"],"default":"浅色","section":"外观"},"$preview":{"width":402,"height":874}}'>
+class Component extends DCLogic {
+  static stepOf(v) {
+    const screen = {
+      '扫码': 'scan', '核对': 'verify', '已连接的 Mac': 'settings', '相机权限被拒': 'denied',
+      '二维码已过期': 'scan', '连不上中继': 'relayDown', '绑定被拒绝': 'rejected', '已被解绑': 'revoked'
+    }[v] || 'intro';
+    return { screen, scanExpired: v === '二维码已过期', unbindAsk: false };
+  }
+
+  state = { ...Component.stepOf(this.props.step), notifyNeed: true, notifyDone: false };
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.step !== this.props.step) this.setState(Component.stepOf(this.props.step));
+  }
+
+  qrPath() {
+    const N = 25;
+    let s = 8 * 9973 + 17;
+    const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    const m = [];
+    for (let y = 0; y < N; y++) { m.push([]); for (let x = 0; x < N; x++) m[y].push(rnd() < 0.46); }
+    const finder = (ox, oy) => {
+      for (let dy = -1; dy <= 7; dy++) for (let dx = -1; dx <= 7; dx++) {
+        const x = ox + dx, y = oy + dy;
+        if (x < 0 || y < 0 || x >= N || y >= N) continue;
+        const inside = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6;
+        m[y][x] = inside && (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4));
+      }
+    };
+    finder(0, 0); finder(18, 0); finder(0, 18);
+    for (let i = 8; i <= 16; i++) { m[6][i] = i % 2 === 0; m[i][6] = i % 2 === 0; }
+    let d = '';
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (m[y][x]) d += 'M' + x + ' ' + y + 'h1v1h-1z';
+    return d;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const set = (o) => this.setState(o);
+    const go = (screen) => () => set({ screen, unbindAsk: false, scanExpired: false });
+    return {
+      themeClass: (this.props.appearance ?? '浅色') === '深色' ? 'dk' : '',
+      qrPath: this.qrPath(),
+      onIntro: s.screen === 'intro', onScan: s.screen === 'scan', onVerify: s.screen === 'verify',
+      onDone: s.screen === 'done', onSettings: s.screen === 'settings',
+      onDenied: s.screen === 'denied', onRelayDown: s.screen === 'relayDown',
+      onRejected: s.screen === 'rejected', onRevoked: s.screen === 'revoked',
+      scanExpired: s.scanExpired, showExpired: () => set({ scanExpired: true }),
+      goIntro: go('intro'), goScan: go('scan'), goVerify: go('verify'), goDone: go('done'), goRejected: go('rejected'),
+      unbindAsk: s.unbindAsk,
+      askUnbind: () => set({ unbindAsk: true }), cancelUnbind: () => set({ unbindAsk: false }),
+      confirmUnbind: go('intro'),
+      notifyNeed: s.notifyNeed, notifyDone: s.notifyDone,
+      toggleNeed: () => set({ notifyNeed: !s.notifyNeed }), toggleDone: () => set({ notifyDone: !s.notifyDone }),
+      needBg: s.notifyNeed ? '#0075de' : 'var(--ov)', needKnob: s.notifyNeed ? '22px' : '2px',
+      doneBg: s.notifyDone ? '#0075de' : 'var(--ov)', doneKnob: s.notifyDone ? '22px' : '2px'
+    };
+  }
+}
+</script>
+</body>
+</html>

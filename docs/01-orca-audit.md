@@ -1,6 +1,7 @@
 # 01 — `stablyai/orca` 上游代码审计报告
 
-> **审计对象**：`https://github.com/stablyai/orca`（本地只读参考快照 `/tmp/shepherd-orca-ref`）
+> **审计对象**：`https://github.com/stablyai/orca`（本地只读参考快照 `/tmp/shepherd-orca-ref`；该路径在临时目录，重启或清理后会丢失，复现方式见 §7.1）
+> **修订状态**：评审修订版 v2（2026-11-26）。正文审计结论未变；新增 §7「评审补充查证」，并在涉及 Claude 协议参考、ACP 适配器依赖与体量估算的几处加了「更正（v2）」标注。v3：新增 §7.6（Magpie 的插件结构）。v4（2026-11-27）：新增 §7.7（Orca 的主程序崩溃兜底 `orca-provider-exec`），更正 §5 与 §7.3 中关于进程清理的不完整表述。v5（2026-11-27）：新增 §7.8（Orca 的中继与推送）；§5 把 `mobile`、`cloud` 一并砍掉的结论已被改动，Shepherd 的 Companion 改回范围（[`docs/02-architecture.md`](./02-architecture.md) §3.5），正文保留原样。本文 §4.4 建议为 Native Chat 配终端抽屉、§5 把 `agent-hooks` 与 `pty` 列为 P1 可选，这两处建议最终未被采纳，Shepherd 不内嵌终端（[`docs/02-architecture.md`](./02-architecture.md) §2.4）；正文保留原样，作为当时的审计意见。
 > **审计基线**：Commit `284bf8425a0a518225c81becdaf0023d52fa5d1e`（`package.json` 版本 `1.4.214`，锁定 `Node v24.22.3` / `Electron 45.4.1`）
 > **审计目标**：为 **Shepherd**（轻量裁剪版 macOS Native 多 AI 编程代理编排应用，本期忽略 Magpie 模型网关）提供面向代码实证的合规底线、Electron 解耦评估、Agent 协议细节、Worktree/存储/Skill 实况以及模块级裁剪清点表。
 > **事实分级说明**：本文严格区分 **`[已查证]`**（直接来自上游仓库源码、构建脚本或官方文档）与 **`[推断/评估]`**（基于代码事实推演出的工程工作量、合规风险或行业经验判断）。
@@ -37,7 +38,7 @@
 | 组件 / 依赖 | 所在路径 / 包名 | 许可协议 | 风险等级 | 对 Shepherd 的合规影响 |
 | :--- | :--- | :--- | :---: | :--- |
 | **Orca 主代码与原生辅助工具** | `src/*`, `native/*`（含 `provider-exec.c`, `journal-file-lock`, `*-macos/*.swift`, `windows-agent-hook`） | **MIT** (`Lovecast Inc.`) | 低 | 直接复用代码或改造子模块须保留 MIT 版权头；纯干净室重写仅参考协议则无代码版权传染 |
-| **Claude Agent SDK** | `@anthropic-ai/claude-agent-sdk` (`0.3.330`) | **Anthropic Commercial Terms of Service**（非开源） | **高** | **合规红线**：不得视为 MIT 依赖；Orca 已在 `pnpm-workspace.yaml` 通过 `ignoredOptionalDependencies` 剔除其 ~95 MB/平台内置 CLI 二进制，但仍捆绑其 JS 运行时。Shepherd 若面向外部用户分发，建议避免内置该闭源 SDK，改用纯协议对接用户本机 `claude` CLI 或开放 ACP 适配层 `[推断/评估]` |
+| **Claude Agent SDK** | `@anthropic-ai/claude-agent-sdk` (`0.3.330`) | **Anthropic Commercial Terms of Service**（非开源） | **高** | **合规红线**：不得视为 MIT 依赖；Orca 已在 `pnpm-workspace.yaml` 通过 `ignoredOptionalDependencies` 剔除其 ~95 MB/平台内置 CLI 二进制，但仍捆绑其 JS 运行时。Shepherd 若面向外部用户分发，建议避免内置该闭源 SDK，改用纯协议对接用户本机 `claude` CLI `[推断/评估]`。**更正（v2）**：ACP 适配层 `@agentclientprotocol/claude-agent-acp` 自身依赖该 SDK（见 §7.2），不能当作绕开 SDK 的替代 |
 | **终端 PTY 引擎** | `node-pty` (`^1.1.0` + `config/patches/node-pty@1.1.0.patch`) | **MIT** | 低 | 仅路线 A（Node Sidecar）需要；路线 B 在 macOS 可直接调用 POSIX `openpty`/`forkpty` 或 `SwiftTerm`/`libghostty`（均为 MIT） |
 | **终端渲染 / 无头缓冲** | `@xterm/xterm`, `@xterm/headless`, `@xterm/addon-*`（6 个本地补丁） | **MIT** | 低 | Shepherd 原生 macOS UI 彻底抛弃 xterm.js |
 | **文件监控** | `@parcel/watcher` (`^2.5.6`) | **MIT** | 低 | 路线 B 在 macOS 直接使用系统原生 `FSEvents` / `DispatchSource`，零三方依赖 |
@@ -152,7 +153,7 @@ flowchart TD
 
 | 维度 | 查证事实 | 对 Shepherd（路线 A Sidecar）的实际影响 `[推断/评估]` |
 | :--- | :--- | :--- |
-| **Node 运行时绑定** | `src/shared/node-runtime/node-runtime-pin.ts` 锁死 `Node v24.22.3`（N-API 10）；`darwin-arm64` 单个可执行文件 **122.59 MB**，`darwin-x64` **125.76 MB**（通用包双架构即 ~248 MB） | 违背“轻量 macOS 原生应用”包体目标（纯 Swift 应用通常 10-30 MB） |
+| **Node 运行时绑定** | `src/shared/node-runtime/node-runtime-pin.ts` 锁死 `Node v24.22.3`（N-API 10）；`darwin-arm64` 单个可执行文件 **122.59 MB**，`darwin-x64` **125.76 MB**（通用包双架构即 ~248 MB） | 违背“轻量 macOS 原生应用”包体目标（纯 Swift 应用通常 10-30 MB）。**口径注（v2）**：122.59 MB 是未压缩二进制；官方发行包压缩后为 tar.gz 50.6 MB / tar.xz 26.2 MB（§7.2），与压缩后的 `.dmg` 对比时应使用压缩口径 |
 | **原生模块现状** | **已无 `better-sqlite3`**（改用 Node 24 内置 `node:sqlite`）；但 `orcad` 仍强依赖 `node-pty`（含 `pty.node` + `spawn-helper` + 本地补丁）、`@parcel/watcher`（`watcher.node`）、`orca-provider-exec`（C 编译）、`ripgrep` | macOS 公证（Notarization）须对 Node、`.node` 动态库、C 二进制逐一签 Hardened Runtime + Entitlements，ABI 与 Node 版本强耦合 |
 | **运行时体量与多进程开销** | `orcad` 单 JS bundle 约 **11 MB**（`orcad-entry-build.mjs` 注释指出含非 ASCII 时 V8 堆直接翻倍至 ~21 MB），旁挂 **25 个独立打包的子进程/Worker 入口**（`daemon-entry`、watcher、多个 SQLite worker、session-scanner 等） | 冷启动需启动主 Node 进程 + 多个子 Node/Worker 进程，常驻空闲内存易达 **250-500 MB**，难以达到原生态轻快体感 |
 | **业务逻辑高度捆绑** | `OrcaRuntimeService` 继承链 + `activateBackendRuntime`（`src/main/backend/core-runtime-activation.ts`）将 1,202 个 RPC 全部装配，其中 `bots`(143)、`browser`(127)、`orchestration`(65)、`github`(54)、`google`(44)、`linear`(43)、`jira`(28)、`plugins`(27)、`gitlab`(22)、`emulator`(21) 占绝大多数 | **「能直接跑」≠「能轻松裁剪」**。直接跑则携带 90% 冗余子系统与攻击面；若要从 `OrcaRuntimeService` 剥离上述模块，预计需拆解数万行跨模块调用与继承关系，且彻底失去同步上游更新的能力 |
@@ -208,6 +209,7 @@ Orca 的 Native Chat 结构化会话在运行时抽象了 **4 种统一传输通
      - `env`：剥离宿主继承的 `CLAUDE_CONFIG_DIR` 和被拒 API Key，并强制注入 **`CLAUDE_CODE_ENTRYPOINT=orca`**（`src/shared/agent-launch/startup/claude-chat-entrypoint.ts`）；
      - `canUseTool` 与 `onUserDialog`：由 SDK 接管底层 `stream-json` 中的 `control_request`/`control_response` 帧去重与取消语义，回调至 Orca 审批卡片；并通过 `createClaudeControlSurface(session)` 暴露 `interrupt`、`setPermissionMode`、MCP Server 状态等控制方法。
    - **`[推断/评估]` 对纯 Swift 路线的启示**：底层实质仍是 `claude` CLI 的 stdio NDJSON（`stream-json` + control protocol）。纯 Swift 若直接实现该线协议，可摆脱 Node 24 与 Anthropic 商业条款 SDK 依赖，但需自行跟踪 Claude CLI 升级带来的控制帧字段变更。
+   - **更正（v2）`[已查证]`**：Orca 源码里没有这套控制协议的实现。`claude-stream-json-connection.ts` 的注释写明请求 ID、取消与去重由 SDK 处理，其余传输参数也由 SDK 提供。因此对 Claude 线协议而言，Orca 只能说明「该传哪些选项」，不构成参考实现；可读的参考是 MIT 许可的官方 Python SDK（§7.2、§7.3）。
 2. **Terminal 模式：PTY + Loopback HTTP Hook + OSC 7501 双通道**：
    - **重要勘误（平台实现差异）**：原生 Rust 二进制 **`orca-agent-hook`**（`native/windows-agent-hook/Cargo.toml`，产出 `orca-agent-hook.exe`）**仅用于 Windows**；在 **macOS / POSIX** 上，Orca 安装的是轻量 **POSIX Shell 脚本**（`src/main/agent-hooks/installation/scripts/hook-post-command.ts`），内部通过 `curl --noproxy 127.0.0.1 -X POST http://127.0.0.1:${ORCA_AGENT_HOOK_PORT}/hook/claude` 上报 stdin JSON，携带认证头 `X-Orca-Agent-Hook-Token` 及缓存的 base64 元数据头 `X-Orca-Agent-Hook-Meta`（打包 `paneKey`/`tabId`/`launchToken`/`worktreeId`/`env`/`version`）。
    - **`X-Orca-Hook-Decision` 同步拦截机制（`src/main/agent-hooks/README.md`）**：
@@ -339,12 +341,12 @@ Orca 采用 **「轻量 Stub + 按需拉取 Guide」两级分发架构**（`skil
 | Orca 真实模块路径 | 文件数 | 非测试 LOC | Electron 耦合 | Shepherd 处置决策 | 路线 A（Sidecar）复用难度 | 路线 B（纯 Swift）重写成本与说明 `[推断/评估]` |
 | :--- | ---: | ---: | :---: | :--- | :--- | :--- |
 | `src/main/codex` | 401 | 52,089 | **0** | **核心保留 / 协议参考** | 可直接跑，但强耦合 `runtime`/`native-chat` journal | **低-中（~1.5-2.5K LOC）**：stdio NDJSON + `initialize` + 4 类审批请求 + 可选连接池；砍掉 Windows Job/WSL/多账号家目录同步 |
-| `src/main/claude` | 209 | 27,526 | **0** | **核心保留 / 需去闭源 SDK** | 可直接跑，但强绑定商业条款 `@anthropic-ai/claude-agent-sdk` | **中（~1.5-2K LOC）**：直连 `claude --output-format stream-json --input-format stream-json` + control_request 审批，规避闭源 SDK 合规风险 |
+| `src/main/claude` | 209 | 27,526 | **0** | **核心保留 / 需去闭源 SDK** | 可直接跑，但强绑定商业条款 `@anthropic-ai/claude-agent-sdk` | **中（~1.5-2K LOC）**：直连 `claude --output-format stream-json --input-format stream-json` + control_request 审批，规避闭源 SDK 合规风险。**估算待校准（v2）**：Orca 在 SDK 之上另有 `claude/structured` 约 1.3 万行（会话恢复、选项、权限、转录等边界处理），而线协议本身 Orca 并未实现（§7.3） |
 | `src/main/acp` | 160 | 20,573 | **0** | **核心保留（精简方言）** | 可直接跑 | **低-中（~1.5K LOC）**：标准 JSON-RPC 2.0 over stdio NDJSON，MVP 先覆盖 2-3 个主流方言即可 |
 | `src/main/git` + `source-control` | 263 | 29,769 | **0** | **核心保留（大幅精简）** | 可直接跑 | **低（~1.5-2K LOC）**：封装 `git worktree` / `status` / `diff` / `commit` / `gh pr create`，去掉 WSL/SSH 远端适配 |
 | `src/main/workspaces` + `workspace-hooks` | 141 | 16,387 | 1 处（idle gate） | **核心保留（精简）** | 几乎无 Electron 耦合 | **低（~1K LOC）**：Worktree 注册表、`shepherd.yaml`/`orca.yaml` 解析、SHA-256 信任哈希、`git check-ignore` 软链校验 |
 | `src/main/native-chat` | 992 | 127,958 | **0** | **仅参考事件模型，大幅裁剪** | 与 `runtime`/SQLite/Mobile 分页深度互锁，极难剥离 | **中（~2-3K LOC）**：Swift 统一事件流模型（Turn/Thinking/ToolCall/Approval/Diff/Usage）+ GRDB 持久化；砍掉多端同步与复杂历史导入 |
-| `src/main/provider-process` + `native/provider-exec` + `@orca/process-host` | 73 | 7,856+ | **0** | **核心参考（保留设计思想）** | 直接复用 | **低（~0.6K LOC）**：macOS 专用 `Process` + POSIX `setpgid`/`killpg` + 优雅 `SIGTERM→SIGKILL` 进程树回收，无需兼容 Windows ConPTY/Job |
+| `src/main/provider-process` + `native/provider-exec` + `@orca/process-host` | 73 | 7,856+ | **0** | **核心参考（保留设计思想）** | 直接复用 | **低（~0.6K LOC）**：macOS 专用 `Process` + POSIX `setpgid`/`killpg` + 优雅 `SIGTERM→SIGKILL` 进程树回收，无需兼容 Windows ConPTY/Job。**更正（v4）**：`native/provider-exec` 不只是进程树回收，还负责主程序崩溃后的兜底清理，见 §7.7 |
 | `src/main/agent-hooks` | 175 | 22,257 | **0** | **按需保留（P1 极简版）** | 直接复用但包含 20+ Agent 与 Windows 逻辑 | **极低（~0.5K LOC）**：若配 P1 可折叠终端抽屉，仅需极简 macOS loopback HTTP + `curl` Hook 与 OSC 7501 解析 |
 | `src/main/daemon` + `pty` | 445 | 50,320 | 1-2 处 | **大幅裁剪（P1 可选）** | 强依赖 `node-pty` 与独立守护进程 | **极低（复用现成库）**：macOS 直接集成 `SwiftTerm` 或 `libghostty`，彻底省去 5 万行跨平台 PTY 守护与重连代码 |
 | `src/main/persistence` + `sqlite` | 454 | 59,078 | 2 处 | **核心替换** | 依赖 `node:sqlite` + 独立写/备份 Worker | **极低（~0.8K LOC）**：原生 `GRDB.swift`（WAL 模式），无需 legacy JSON 迁移与多进程锁 |
@@ -370,5 +372,118 @@ Orca 采用 **「轻量 Stub + 按需拉取 Guide」两级分发架构**（`skil
    - **无法轻量裁剪**：`OrcaRuntimeService`（31.7 万 LOC）与 1,202 个 RPC 深度耦合了 Bots、Browser、Mobile E2EE、Linear/Jira、Orchestration，**不裁太重，裁剪则工程量巨大且断掉上游合并路径**；
    - **合规隐患**：内置 `orcad` 会顺带引入受 Anthropic 商业条款约束的 `@anthropic-ai/claude-agent-sdk`。
 3. **审计视角倾向结论**：
-   - **高度利好路线 B（纯 Swift 原生核心，将 `stablyai/orca` 作为「协议规格与边界坑位活字典」）**。Shepherd MVP 真正需要的协议面极窄（总计估算仅 **~1 万行以内 Swift 后端代码**，不足 Orca `src/main` 的 1%）：① `git worktree` + `shepherd.yaml`/`orca.yaml`（含 SHA-256 信任哈希与 `.gitignore` 软链校验）；② Codex `app-server` stdio NDJSON 客户端；③ Claude Code `stream-json` stdio 协议客户端（避开闭源 SDK）；④ 精简版 ACP JSON-RPC 2.0 客户端；⑤ 原生 GRDB SQLite + 可选 `SwiftTerm`/`libghostty` 终端抽屉。
-   - 若因极短 MVP 验证周期考虑路线 A 作为短期原型，也**必须**在 Swift 侧用抽象 Protocol 彻底隔离 `orcad` 自定义 RPC 契约，且切勿对 `src/main/runtime` 做侵入式深裁剪（只做黑盒挂载），以便后续平滑切换到纯 Swift 协议层。
+   - **高度利好路线 B（纯 Swift 原生核心，将 `stablyai/orca` 作为「协议规格与边界坑位活字典」）**。Shepherd MVP 真正需要的协议面极窄（总计估算仅 **~1 万行以内 Swift 后端代码**，不足 Orca `src/main` 的 1%）。**v2 注**：「活字典」对 Codex 与 ACP 成立，对 Claude 线协议不成立（见 §3.2 更正）；「~1 万行」不含 UI，且 Orca 三个协议目录合计约 10 万行，该估算偏乐观，待 M0 出口用实测校准。协议面包括：① `git worktree` + `shepherd.yaml`/`orca.yaml`（含 SHA-256 信任哈希与 `.gitignore` 软链校验）；② Codex `app-server` stdio NDJSON 客户端；③ Claude Code `stream-json` stdio 协议客户端（避开闭源 SDK）；④ 精简版 ACP JSON-RPC 2.0 客户端；⑤ 原生 GRDB SQLite + 可选 `SwiftTerm`/`libghostty` 终端抽屉。
+   - 若为了快速验证而考虑把路线 A 作为短期原型，也**必须**在 Swift 侧用抽象 Protocol 彻底隔离 `orcad` 自定义 RPC 契约，且切勿对 `src/main/runtime` 做侵入式深裁剪（只做黑盒挂载），以便后续平滑切换到纯 Swift 协议层。
+
+---
+
+## 7. 评审补充查证（v2 · 2026-11-26）`[已查证]`
+
+本节记录方案评审阶段新增的查证结果，均可在本机或公开来源复现。它们修正或补充了上文的若干推断，并被 `02`–`04` 与 `PROPOSAL.md` 引用。外部政策与竞品信息有时效性，引用时请带上查证日期。
+
+### 7.1 审计快照的复现方式
+
+本地快照放在 `/tmp`，不保证长期存在。按下面两条命令可以恢复到同一基线（commit 日期 2026-11-26，`package.json` 版本 `1.4.214`）：
+
+```bash
+git clone https://github.com/stablyai/orca /tmp/shepherd-orca-ref
+git -C /tmp/shepherd-orca-ref checkout 284bf8425a0a518225c81becdaf0023d52fa5d1e
+```
+
+### 7.2 依赖、许可与体积
+
+| 对象 | 查证结果 | 查证方式 |
+| :--- | :--- | :--- |
+| `@agentclientprotocol/claude-agent-acp@0.112.0` | Apache-2.0；直接依赖 `@anthropic-ai/claude-agent-sdk@0.3.331`；`engines.node >= 22` | `npm view` 元数据 |
+| `@anthropic-ai/claude-agent-sdk@0.3.332` | `license` 字段为 `SEE LICENSE IN README.md`，不是开源许可 | `npm view` 元数据 |
+| 官方 Python SDK `claude-agent-sdk@0.2.189` | **MIT**；源码可读，能直接看到它拼出的 CLI 参数（`--output-format`、`--input-format`、`--verbose`、`--permission-prompt-tool`、`--permission-mode`、`--include-partial-messages`）和控制子类型（`initialize`、`interrupt`、`set_model`、`set_permission_mode`、`can_use_tool`、`hook_callback`、`mcp_message`、`mcp_status`、`get_context_usage`、`stop_task`、`rewind_files` 等） | PyPI 元数据；GitHub `anthropics/claude-agent-sdk-python` 源码 |
+| Node v24.22.3 `darwin-arm64` | 未压缩二进制 122.59 MB；官方发行包 tar.gz 50.6 MB、tar.xz 26.2 MB | nodejs.org 发行包 `Content-Length` |
+
+### 7.3 Orca 接入 Claude Code 的实际分工
+
+- **线协议全部交给 SDK**：Native Chat 通过 `query()` 以流式输入方式驱动用户本机 `claude`，Orca 自己不处理 `control_request` / `control_response` 帧。
+- **Orca 接管四件事**：可执行文件路径（`pathToClaudeCodeExecutable`）、进程（`spawnClaudeCodeProcess`，换成自己的托管进程）、环境变量（清掉继承的 `CLAUDE_CONFIG_DIR` 与被拒 API Key，写入 `CLAUDE_CODE_ENTRYPOINT=orca`）、审批回调（`canUseTool` / `onUserDialog`）。
+- **基础选项**：`includePartialMessages: true`、`systemPrompt` 用 `claude_code` 预设、默认 `settingSources`、额外参数 `--replay-user-messages`；环境变量 `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`（没有 `result` 帧时靠它判断空闲）。
+- **会话 ID 规则**：Orca 自己生成会话 ID。新会话传 `sessionId`（即 `--session-id`），磁盘上已有转录才传 `resume`。源码注释：没有转录时 `--resume` 会失败，ID 已存在时 `--session-id` 会冲突。
+- **权限模式映射**：`ask → default`（显式覆盖用户设置里的 `defaultMode`）、`accept-edits → acceptEdits`、`auto → auto`、`own` 则不传（沿用用户设置）、完全放行用 `--dangerously-skip-permissions`。
+- **进程清理**：停进程前先抓后代进程快照，以 pid、pgid 与启动时间做身份校验；注释写明根进程退出后被 reparent 的后代将无法再发现。**更正（v4）**：这只是主进程内的那一半。Orca 另有原生启动器，用环境变量标记找回被 reparent 的后代，并在主程序崩溃时兜底，见 §7.7。
+- **会写用户配置**：终端通道把托管 hooks 写进 `~/.claude/settings.json`；工作区信任以尽力而为的方式写入 `~/.claude.json` 的 `hasTrustDialogAccepted`。
+- **转录回填**：`claude-transcript-catch-up.ts` 从 Claude 自己的 JSONL 转录补齐外部续聊产生的轮次。
+- **代码量**：`claude/structured` 13,185 行、`sdk-transport` 659 行、`child-process` 664 行、`transcripts` 1,936 行、`hooks` 1,186 行、`claude-accounts` 4,876 行。
+
+### 7.4 本机 CLI 与系统行为
+
+- **`claude` 2.1.332**：
+  - `--help` 写明非交互模式（`-p`，或 stdout 不是 TTY）会跳过工作区信任对话。
+  - 存在 `--settings <file-or-json>`、`--plugin-dir`、`--session-id`、`--replay-user-messages`、`--setting-sources`、`--mcp-config`、`--fork-session`。
+- **`codex` 0.172.0**：
+  - `app-server --listen` 的默认值就是 `stdio://`。
+  - 提供实验性的 `generate-json-schema` 与 `generate-ts`，可以直接生成协议类型。
+  - 生成的 Schema 中 `ServerRequest` 共 10 种方法。其中 4 类需要用户参与，回包结构各不相同：命令与文件审批回 `decision`（命令审批可选 `accept` / `acceptForSession` / `acceptWithExecpolicyAmendment` / `applyNetworkPolicyAmendment` / `decline` / `cancel`；文件审批可选前两项加 `decline` / `cancel`），`item/tool/requestUserInput` 回 `answers`，`mcpServer/elicitation/request` 回 `action`（`accept` / `decline` / `cancel`）加可选 `content`。
+- **进程组**：Claude Code 2.1.331 把 Bash 工具启动的 shell 放进独立进程组（实测 `claude` 进程与其子 shell 的 PGID 不同）；交互式 zsh 的前台作业同样自成进程组。只向 Agent 所在进程组发信号覆盖不到它们。
+- **git 软链**：`.gitignore` 里带斜杠的目录规则（如 `node_modules/`）不匹配同名软链。在 Worktree 里建立这样的软链后，`git status` 会显示 `?? node_modules`。
+
+### 7.5 外部政策与竞品（查证于 2026-11-26）
+
+- **`claude -p` 用量归属**：Anthropic 于 2026 年 5 月宣布自 6 月 15 日起把 Agent SDK、`claude -p` 与第三方应用的用量移出订阅额度、改用独立额度；6 月 15 日宣布暂停。帮助中心文章 10 月 7 日的更新仍写明以订阅登录时这些用量计入订阅额度，没有给出恢复时间。来源：[Use the Claude Agent SDK with your Claude plan](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)。
+- **订阅凭据的使用边界**：Claude Code 合规页写明第三方开发者不得在自己的应用里提供 Claude.ai 登录，也不得代用户经订阅凭据转发请求；基于 Agent SDK 构建产品应使用 API Key；该政策不限制用户用自己的订阅登录未修改的 Claude Code 二进制。表述以页面原文为准。来源：[Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)。
+- **Claude 权限判定顺序**：Hooks → Deny 规则 → Ask 规则 → 权限模式 → Allow 规则 → `canUseTool` 回调；回调只在前面各步都没有决定时才被调用。来源：[Agent SDK permissions](https://code.claude.com/docs/en/agent-sdk/permissions)。
+- **Conductor**：2026 年 11 月初被 Meta 收购，团队并入 Meta Superintelligence Labs；Conductor Cloud 当月关停，桌面端只更新到 2027 年初。来源：[The Register](https://theregister.com/ai-and-ml/2026/11/05/meta-brings-conductor-on-board-its-model-train/5307711)、[InfoWorld](https://www.infoworld.com/article/4245065/meta-acquires-conductor-as-ai-coding-shifts-toward-multi-agent-development.html)。
+- **cmux**：更新日志显示已有 Diff 查看器（不晚于 2026 年 9 月的 0.64.23，后续加入已阅跟踪与文件过滤）、与 Diff 评审评论相关的 `cmux comments` 命令，以及 0.65.1 的「Agent chat panes (beta)」。更新日志未读全，逐行评论回传 Agent 的完整流程未逐项确认。来源：[cmux changelog](https://cmux.com/docs/changelog)。
+- **Paradev**：即原 Superset，2026 年 10 月更名。来源：[Paradev README](https://raw.githubusercontent.com/ParadevAI/Paradev/main/README.md)。
+
+### 7.6 Magpie 的插件结构（v3 · 查证于 2026-11-26）
+
+用于支撑 [`docs/02-architecture.md`](./02-architecture.md) §3.1.5 的 provider 分层。查证对象是 [`yetone/magpie`](https://github.com/yetone/magpie)（MIT，Go）当日默认分支的文档。
+
+- **定位**：本机模型网关。Agent 把请求发到本机网关，由它路由到用户的 API Key、订阅与本地模型。来源：`README.zh-CN.md`。
+- **内置插件**：
+  - 仓库 `plugins/` 下每个目录是一个编进二进制、可以关闭的包。
+  - 插件在 `init` 里用清单注册。清单声明兼容的宿主接口版本范围（如 `^1`），以及所需与所提供的服务。
+  - 核心代码不引用任何插件，只有入口经 `plugins/all` 引入。这条边界由测试 `TestPluginsImportOnlyCore` 强制，插件之间只通过服务互相访问。
+  - 来源：`docs/subsystems/plugin-runtime.md`。
+- **社区 provider 插件**：
+  - 独立仓库 [`magpie-community/plugins`](https://github.com/magpie-community/plugins) 里的 npm 包，沿用 OpenCode 的插件格式。
+  - 插件负责登录、列出模型与发送请求。
+  - 插件运行在 Bun 上，首次需要时才下载。
+  - 来源：`README.zh-CN.md`。
+- **归属与版本**：一个订阅要么由内置实现负责，要么由插件负责。Magpie 为每个迁移到插件的订阅记录所需的最低插件版本，内置实现逐个退役。来源：`docs/subsystems/provider-plugins.md`。
+- **对 Shepherd 的含义**：可借鉴的是两层结构、清单加版本范围，以及用测试守住依赖方向。不能照搬的是脚本运行时与基本无状态的插件契约（`docs/02-architecture.md` §3.1.5）。
+
+### 7.7 Orca 的主程序崩溃兜底：`orca-provider-exec`（v4 · 查证于 2026-11-27）
+
+v2 审计只记录了主进程内的进程清理，没有查「主程序崩溃或被强杀后由谁清理」。补查结果：Orca 有专门的原生启动器负责这件事。
+
+- **来源**：`native/provider-exec/provider-exec.c`，约 2,200 行 C。查证方式是读 GitHub 上 `main` 分支的文件头注释与关键结构，没有逐行读完，也没有运行验证。该文件的提交记录在 2026-11-16 至 11-25 之间，审计基线 `284bf842` 时它可能尚不存在或形态不同。
+- **粒度**：每启动一个 provider CLI 套一层，不是全局一个守护进程。
+- **进程结构**：
+  - 启动器本身是一个小父进程，负责回收 leader 并上报退出状态。
+  - leader 新建会话（session），等主程序发出放行信号后再 `exec` 成 CLI；CLI 的参数、环境、信号屏蔽保持原样。
+  - leader 在 `exec` 前派生一个同会话的看守进程（watcher）。
+- **怎么发现主程序死了**：看守进程持有一根通向主程序的管道（owner pipe）。管道上可以收到「关 stdin」「终止」「回收」三种指令；读到 EOF 即视为主程序已死。
+- **停止流程**：关 stdin 后等一段宽限期，再发 `SIGTERM` 并等待，最后回收。整个流程只有一个阶段状态和一个绝对截止时间，重复的终止指令不会重置或缩短它；主程序中途死亡时流程接着走完。
+- **找回逃逸的后代**：给进程树注入环境变量标记 `ORCA_PROVIDER_TREE`，CLI 启动的所有工具都会继承。在 macOS 上，被 launchd 收养、已脱离原进程组的后代，靠读取进程环境里的这个标记仍能找到。同一会话里的进程也算作成员。
+- **身份校验**：成员以 pid 加内核记录的启动时间标识，防止 pid 复用后误杀。读不到环境的进程按「无法证明属于本树」处理，不杀。
+- **无法证明时的行为**：如果当前主机上无法证明进程树已清空，CLI 所在进程组消失后立即结束，结果标记为未验证，不空等截止时间。
+- **Linux 上的差异**：启动器把自己设为 subreaper 来收养后代。macOS 没有这个机制，所以才用环境变量标记。
+- **对 Shepherd 的含义**：
+  - 原方案的全局 `shepherd-reaper` 依赖主程序登记进程组，主程序死后新逃逸的后代没人登记。Orca 的「每个 Agent 一个看守进程，加继承式环境变量标记」能补上这个缺口。
+  - Shepherd 借鉴的是设计，不复制代码。标记变量要用自己的名字，不能出现 `ORCA_` 前缀（§1.3）。
+  - 采纳后的设计见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3。
+
+### 7.8 Orca 的中继与推送（v5 · 查证于 2026-11-27）
+
+查证对象是 `cloud/` 目录的 README、线协议契约 `cloud/packages/relay-contract` 与令牌校验器 `cloud/apps/relay/src/authentication/relay-token-verifier.ts`。服务端的实现代码没有逐个读，手机端如何保存凭证也没有看；部署代码在私有仓库 `stablyai/orca-cloud`，不可见。
+
+- **结构**：手机与桌面不直连，各自向中继发起 WebSocket 连接，中继配对后转发数据帧。中继分 director（分配主机到节点，分配结果带签名与租约）和 cell（承载连接）两种角色。另有独立的推送网关。
+- **桌面端要登录账号**：连接中继时带一个 JWT。中继用 JWKS 校验签发方、受众与 ES256 签名，声明里有用户、档案、组织与主机 ID，用途限定为 `host-control`。签发令牌的账号服务不在仓库里。
+- **主机密钥证明**：中继用主机的 X25519 公钥加密随机数（`Curve25519-XSalsa20-Poly1305`），主机解密后回传 HMAC-SHA-256。参与计算的内容包含中继地址、账号信息、主机 ID、公钥与时间。
+- **手机不登录账号**：用主机替它登记的凭证。
+  - 邀请令牌：主机请求中继生成，有过期时间与最多尝试次数（上限 16）。
+  - 续连令牌：中继只存 32 字节的哈希，带版本号，轮换时旧令牌有宽限期。
+  - 吊销：主机可按设备吊销。
+- **连接对接**：契约里是一个 9 个状态的状态机，从准入、预留凭证租约、通知主机、主机接入，到开始转发并确认端到端加密。
+- **推送网关**：持有 APNs 密钥，经 APNs 与 FCM 推送。手机不持有网关的凭据；主机用同一把 X25519 密钥通过加密质询换取 24 小时会话，再登记手机的推送令牌。日志只记汇总计数。
+- **许可**：`cloud/` 沿用仓库根目录的 MIT 许可。
+- **对 Shepherd 的含义**：借鉴主机密钥证明、设备凭证与连接对接的设计，去掉账号层与多节点调度，不复制代码。去掉账号后无法按用户限额与封禁，这是已知的差距（`04` R17）。
+

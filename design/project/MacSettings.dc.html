@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · 设置 › 设备</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--input:#dddddd;--ov:rgba(0,0,0,0.05);--link:#0075de;--selBg:rgba(0,117,222,0.10);--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);--win:rgba(246,245,244,0.86);--dim:rgba(0,0,0,0.16);--warnInk:#793400;--warnBg:rgba(221,91,0,0.12);color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--input:#4a4744;--ov:rgba(255,255,255,0.08);--link:#62aef0;--selBg:rgba(0,117,222,0.26);--glass:rgba(44,43,41,0.6);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);--win:rgba(25,24,23,0.9);--dim:rgba(0,0,0,0.4);--warnInk:#f2a464;--warnBg:rgba(221,91,0,0.2);color-scheme:dark}
+*{box-sizing:border-box}
+a{color:var(--link)}a:hover{color:var(--link)}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
+button:disabled{opacity:.4;cursor:default}
+input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #0075de;outline-offset:2px}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.eyebrow{font-size:12px;line-height:1.33;font-weight:600;letter-spacing:.125px}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glassEdge);box-shadow:inset 0 1px 0 var(--glassHi),rgba(0,0,0,0.04) 0px 4px 18px,rgba(0,0,0,0.027) 0px 2.025px 7.847px}
+.lift{box-shadow:rgba(0,0,0,0.01) 0px 1px 3px,rgba(0,0,0,0.02) 0px 3px 7px,rgba(0,0,0,0.02) 0px 7px 15px,rgba(0,0,0,0.04) 0px 14px 28px,rgba(0,0,0,0.08) 0px 23px 52px,inset 0 1px 0 var(--glassHi)}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.glass-tint:active{background:#005bab}
+.btn-p{height:36px;padding:0 16px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:16px;line-height:1.5;font-weight:500;white-space:nowrap}
+.btn-s{height:36px;padding:0 16px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:16px;line-height:1.5;font-weight:500;white-space:nowrap;background:var(--surface);box-shadow:inset 0 0 0 1px var(--hair),rgba(0,0,0,0.04) 0px 4px 18px}
+.btn-u{height:32px;padding:4px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px;font-size:16px;line-height:1.5;font-weight:500;white-space:nowrap;background:var(--surface);border:1px solid var(--hair)}
+.proto{height:32px;padding:0 12px;border-radius:8px;border:1.5px dashed var(--faint);color:var(--muted);font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.group{background:var(--surface);border:1px solid var(--hair);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--hair)}
+.row:last-child{border-bottom:0}
+.tile{width:36px;height:36px;border-radius:9px;background:var(--ov);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink2)}
+.tab{width:76px;height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:600;letter-spacing:.125px;color:var(--ink2)}
+.sect{font-size:15px;font-weight:600;margin:0 0 8px 4px}
+.cap{font-size:14px;line-height:1.43;color:var(--muted)}
+</style>
+</helmet>
+<div class="th {{themeClass}}" style="width:1440px;height:900px;position:relative;overflow:hidden;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased">
+
+<div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none">
+<div style="position:absolute;left:120px;top:520px;width:300px;height:300px;border-radius:50%;background:#62aef0;opacity:.85"></div>
+<svg viewBox="0 0 100 100" width="160" height="160" style="position:absolute;left:1180px;top:90px"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#dd5b00"></path></svg>
+<div style="position:absolute;left:1120px;top:600px;width:220px;height:220px;border-radius:44px;background:#d6b6f6;transform:rotate(14deg)"></div>
+<div style="position:absolute;left:180px;top:80px;width:180px;height:100px;border-radius:9999px;background:#1aae39;transform:rotate(-12deg)"></div>
+</div>
+
+<div role="dialog" aria-label="Shepherd 设置" style="position:absolute;left:330px;top:100px;width:780px;height:700px;border-radius:22px;overflow:hidden;background:var(--canvas);box-shadow:0 0 0 0.5px rgba(0,0,0,0.18),rgba(0,0,0,0.06) 0px 23px 52px,rgba(0,0,0,0.05) 0px 14px 28px">
+
+<div class="glass" style="position:absolute;top:0;left:0;right:0;height:112px;border-width:0 0 1px 0;border-radius:0;z-index:3">
+<div style="height:44px;display:flex;align-items:center;padding:0 16px;position:relative">
+<span aria-hidden="true" style="display:flex;gap:8px">
+<span style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></span>
+<span style="width:12px;height:12px;border-radius:50%;background:var(--faint);opacity:.45"></span>
+<span style="width:12px;height:12px;border-radius:50%;background:var(--faint);opacity:.45"></span>
+</span>
+<span style="position:absolute;left:0;right:0;text-align:center;font-size:15px;font-weight:600;pointer-events:none">设备</span>
+</div>
+<nav aria-label="设置面板" style="display:flex;justify-content:center;gap:4px">
+<button class="tab"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg>通用</button>
+<button class="tab"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"></rect><path d="M9 2.5v3M15 2.5v3M9 18.5v3M15 18.5v3M2.5 9h3M2.5 15h3M18.5 9h3M18.5 15h3"></path></svg>Agent</button>
+<button class="tab"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"></path></svg>外部应用</button>
+<button class="tab"><span aria-hidden="true" style="font-size:20px;line-height:22px;font-weight:500">⌘</span>快捷键</button>
+<button class="tab" aria-current="page" style="background:var(--selBg);color:var(--link)"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>设备</button>
+</nav>
+</div>
+
+<div style="position:absolute;top:112px;left:0;right:0;bottom:0;overflow-y:auto;padding:22px 0 32px">
+<div style="width:640px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+
+<section aria-labelledby="sec-devices">
+<h2 id="sec-devices" class="sect">已绑定的设备</h2>
+<div class="group">
+<sc-for list="{{devices}}" as="d" hint-placeholder-count="2">
+<div class="row">
+<span class="tile" aria-hidden="true">
+<sc-if value="{{d.isDuo}}" hint-placeholder-val="{{true}}"><svg class="ic" viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="3" width="16" height="18" rx="2.5"></rect><path d="M12 3v18" style="stroke-dasharray:2 2"></path></svg></sc-if>
+<sc-if value="{{d.isPad}}" hint-placeholder-val="{{false}}"><svg class="ic" viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="2.5" width="16" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg></sc-if>
+<sc-if value="{{d.isPhone}}" hint-placeholder-val="{{false}}"><svg class="ic" viewBox="0 0 24 24" width="22" height="22"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg></sc-if>
+</span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<span style="font-size:15px;font-weight:500">{{d.name}}</span>
+<span class="cap" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{d.meta}}</span>
+</span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)"><span class="dot" style="background:{{d.dot}}"></span>{{d.status}}</span>
+<button onClick="{{d.unbind}}" class="btn-u" style="height:30px;padding:0 12px;font-size:15px">解绑…</button>
+</div>
+</sc-for>
+<sc-if value="{{noDevices}}" hint-placeholder-val="{{false}}">
+<div class="row"><span class="cap">还没有绑定任何设备。不绑定时，这台 Mac 不连接任何服务。</span></div>
+</sc-if>
+<div class="row" style="background:var(--canvas)">
+<button onClick="{{startPairing}}" class="btn-u"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>绑定新设备…</button>
+<span class="cap" style="flex:1">用 iPhone 或 iPad 上的 Shepherd 扫描二维码。每台设备单独绑定，可以随时解绑。</span>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="sec-relay">
+<h2 id="sec-relay" class="sect">中继</h2>
+<div class="group">
+<label class="row" style="cursor:pointer">
+<input type="radio" name="relay" checked="{{relayDefault}}" onChange="{{pickDefault}}" style="accent-color:#0075de;width:16px;height:16px;margin:0">
+<span style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span style="font-size:15px;font-weight:500">默认中继</span>
+<span class="mono" style="font-size:13px;color:var(--muted)">relay.shepherd.inorbit.top</span>
+</span>
+<sc-if value="{{relayDefault}}" hint-placeholder-val="{{true}}"><span style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:{{relayInk}}"><span class="dot" style="background:{{relayDot}}"></span>{{relayStatus}}</span></sc-if>
+</label>
+<div class="row" style="align-items:flex-start">
+<input id="relay-custom" type="radio" name="relay" checked="{{relayCustom}}" onChange="{{pickCustom}}" style="accent-color:#0075de;width:16px;height:16px;margin:3px 0 0">
+<div style="flex:1;display:flex;flex-direction:column;gap:8px">
+<label for="relay-custom" style="font-size:15px;font-weight:500;cursor:pointer">自建中继</label>
+<div style="display:flex;gap:8px">
+<label for="relay-url" class="sr">自建中继地址</label>
+<input id="relay-url" class="mono" value="{{relayUrl}}" onChange="{{onRelayUrl}}" disabled="{{relayDefault}}" placeholder="wss://relay.example.com" style="flex:1;height:32px;border:1px solid var(--input);border-radius:4px;padding:6px 8px;font-size:13px;background:var(--surface)">
+<button class="btn-u" disabled="{{relayDefault}}" style="height:32px;font-size:15px">测试连接</button>
+</div>
+</div>
+</div>
+</div>
+<p class="cap" style="margin:8px 4px 0">中继只转发加密数据，看不到审批内容、命令和代码。自建中继时，锁屏通知仍经官方推送网关发送，内容同样加密。</p>
+</section>
+
+<section aria-labelledby="sec-key">
+<h2 id="sec-key" class="sect">这台 Mac 的身份</h2>
+<div class="group">
+<div class="row">
+<span class="tile" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" width="20" height="20"><circle cx="8" cy="15" r="4"></circle><path d="M11 12 20 3M16.5 6.5l2.5 2.5"></path></svg></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px">
+<span style="font-size:15px;font-weight:500">设备密钥指纹</span>
+<span class="mono" style="font-size:13px;color:var(--ink2)">8F3A 21C0 9D4E 77B1</span>
+</span>
+<button class="btn-u" style="height:30px;padding:0 12px;font-size:15px">重置密钥…</button>
+</div>
+</div>
+<p class="cap" style="margin:8px 4px 0">首次启动时生成，只保存在这台 Mac 的钥匙串里。重置后所有设备都会解绑。没有账号，也不上传到任何服务器。</p>
+</section>
+
+</div>
+</div>
+
+<sc-if value="{{showAlert}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;background:var(--dim);z-index:8"></div>
+<div role="alertdialog" aria-modal="true" aria-labelledby="ub-title" aria-describedby="ub-desc" class="glass lift" style="position:absolute;left:50%;top:180px;width:340px;margin-left:-170px;border-radius:22px;padding:20px;z-index:9;display:flex;flex-direction:column;gap:12px;background:var(--surface)">
+<span aria-hidden="true" style="width:44px;height:44px;border-radius:11px;background:#213183;color:#fff;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" style="stroke-width:2.4"><path d="M9 21V9a4 4 0 1 1 8 0v1"></path></svg></span>
+<h2 id="ub-title" style="margin:0;font-size:17px;font-weight:600">解绑「{{alertName}}」？</h2>
+<p id="ub-desc" style="margin:0;font-size:14px;line-height:1.43;color:var(--ink2)">这台设备会立刻断开，它上面缓存的会话会被清除。之后要重新扫码才能连接。</p>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+<button onClick="{{cancelUnbind}}" class="glass-tint btn-p" style="width:100%">取消</button>
+<button onClick="{{confirmUnbind}}" class="btn-s" style="width:100%">解绑</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showSheet}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;background:var(--dim);z-index:8"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="pair-title" class="glass lift" style="position:absolute;left:50%;top:56px;width:520px;margin-left:-260px;border-radius:24px;padding:24px;z-index:9;display:flex;flex-direction:column;gap:16px;background:var(--surface)">
+
+<sc-if value="{{stepQR}}" hint-placeholder-val="{{true}}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<h2 id="pair-title" style="margin:0;font-size:20px;line-height:1.4;font-weight:600;letter-spacing:-0.125px">绑定设备</h2>
+<p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">在 iPhone 或 iPad 上打开 Shepherd，点「扫描二维码」，对准下方的二维码。</p>
+</div>
+<sc-if value="{{rejected}}" hint-placeholder-val="{{false}}">
+<div role="status" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--ov);font-size:14px;line-height:1.43"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="margin-top:2px;color:#dd5b00"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4.5M12 17.2v.3"></path></svg><span>已拒绝刚才的绑定请求，旧二维码已作废。请让你自己的设备重新扫描。</span></div>
+</sc-if>
+<div style="display:flex;gap:20px;align-items:center">
+<div style="width:216px;height:216px;border-radius:16px;background:#ffffff;border:1px solid #e6e6e6;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden">
+<svg role="img" aria-label="{{qrLabel}}" viewBox="-2 -2 29 29" width="188" height="188" style="shape-rendering:crispEdges;opacity:{{qrOpacity}};filter:{{qrFilter}}"><path d="{{qrPath}}" fill="#000000"></path></svg>
+<sc-if value="{{expired}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(0,0,0,0.95)">
+<span style="font-size:16px;font-weight:600">二维码已过期</span>
+<button onClick="{{refresh}}" style="height:32px;padding:0 14px;border-radius:9999px;background:#0075de;color:#ffffff;font-size:14px;font-weight:500">生成新的二维码</button>
+</div>
+</sc-if>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<sc-if value="{{notExpired}}" hint-placeholder-val="{{true}}">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:var(--muted)"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span>{{expiry}} 后过期</span><button onClick="{{refresh}}" style="color:var(--link);font-size:15px;font-weight:500">刷新</button></div>
+</sc-if>
+<sc-if value="{{expired}}" hint-placeholder-val="{{false}}">
+<div role="status" style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--warnInk)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>已过期，有效期内没有设备扫描</div>
+</sc-if>
+<dl style="margin:0;display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:6px;font-size:14px;line-height:1.43">
+<dt style="color:var(--muted)">中继</dt><dd class="mono" style="margin:0;font-size:13px">relay.shepherd.inorbit.top</dd>
+<dt style="color:var(--muted)">这台 Mac</dt><dd style="margin:0">July 的 MacBook Pro</dd>
+</dl>
+<p class="cap" style="margin:0">二维码只能用一次，过期或被扫描后失效。</p>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding-top:4px">
+<sc-if value="{{notExpired}}" hint-placeholder-val="{{true}}">
+<button onClick="{{simulateScan}}" class="proto">原型：模拟手机已扫码</button>
+<button onClick="{{simulateExpire}}" class="proto">原型：模拟过期</button>
+</sc-if>
+<span style="flex:1"></span>
+<button onClick="{{closeSheet}}" class="btn-u" style="height:36px">取消</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{stepVerify}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<h2 id="pair-title" style="margin:0;font-size:20px;line-height:1.4;font-weight:600;letter-spacing:-0.125px">确认绑定这台设备</h2>
+<p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">一台设备扫描了二维码，正在请求绑定。</p>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--hair)">
+<span class="tile" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="3" width="16" height="18" rx="2.5"></rect><path d="M12 3v18" style="stroke-dasharray:2 2"></path></svg></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:600">July 的 iPhone Duo</span><span class="cap">iPhone Duo · iOS 27.2 · 刚刚经默认中继连接</span></span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 12px;border-radius:16px;background:var(--canvas)">
+<span class="eyebrow" style="color:var(--muted)">验证码</span>
+<span aria-label="验证码 4 8 2 9 1 3" style="font-size:44px;line-height:1.1;font-weight:700;letter-spacing:6px;font-feature-settings:'tnum'">482 913</span>
+</div>
+<p style="margin:0;font-size:14px;line-height:1.43;color:var(--ink2)">这台设备上应显示同样的 6 位数字。一致再确认；不一致说明二维码可能被别人扫描了，请选「不是这台设备」。</p>
+<div style="display:flex;align-items:center;gap:8px;padding-top:4px">
+<button onClick="{{reject}}" class="btn-u" style="height:36px">不是这台设备</button>
+<span style="flex:1"></span>
+<button onClick="{{confirm}}" class="glass-tint btn-p">确认绑定</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{stepDone}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<span aria-hidden="true" style="width:48px;height:48px;border-radius:12px;background:rgba(26,174,57,0.14);color:#1aae39;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="26" height="26" style="stroke-width:2.4"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+<div style="display:flex;flex-direction:column;gap:6px">
+<h2 id="pair-title" style="margin:0;font-size:20px;line-height:1.4;font-weight:600;letter-spacing:-0.125px">已绑定「July 的 iPhone Duo」</h2>
+<p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">这台设备现在可以查看会话、审批与作答、审查 Diff、派发新任务。Agent 仍然只在这台 Mac 上运行。</p>
+</div>
+<div style="display:flex;justify-content:flex-end;padding-top:4px">
+<button onClick="{{finish}}" class="glass-tint btn-p">完成</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{stepRelayDown}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<span aria-hidden="true" style="width:48px;height:48px;border-radius:12px;background:var(--warnBg);color:var(--warnInk);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="26" height="26"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.3 4.6 4.6 0 0 0 7 18.5z"></path><path d="M3.5 3.5l17 17"></path></svg></span>
+<div style="display:flex;flex-direction:column;gap:6px">
+<h2 id="pair-title" style="margin:0;font-size:20px;line-height:1.4;font-weight:600;letter-spacing:-0.125px">连不上中继，无法生成二维码</h2>
+<p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">二维码要先在中继上登记才能用。请检查这台 Mac 的网络；用自建中继时，确认地址正确、服务在运行。</p>
+</div>
+<dl style="margin:0;padding:12px 14px;border-radius:12px;background:var(--canvas);display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:6px;font-size:14px;line-height:1.43">
+<dt style="color:var(--muted)">中继</dt><dd class="mono" style="margin:0;font-size:13px">relay.shepherd.inorbit.top</dd>
+<dt style="color:var(--muted)">结果</dt><dd style="margin:0">连接超时 · 刚刚</dd>
+</dl>
+<p class="cap" style="margin:0">已绑定的设备不受影响，中继恢复后会自动重连。</p>
+<div style="display:flex;align-items:center;gap:8px;padding-top:4px">
+<span style="flex:1"></span>
+<button onClick="{{closeSheet}}" class="btn-u" style="height:36px">取消</button>
+<button onClick="{{retryRelay}}" class="glass-tint btn-p">重试</button>
+</div>
+</div>
+</sc-if>
+
+</div>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sheet":{"editor":"enum","options":["无","二维码","核对验证码","已绑定","二维码已过期","已拒绝","连不上中继"],"default":"无","section":"原型"},"appearance":{"editor":"enum","options":["浅色","深色"],"default":"浅色","section":"外观"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  static fromProp(v) {
+    const base = { sheet: v ?? '无', rejected: false, expired: false, relayDown: false };
+    if (v === '二维码已过期') return { ...base, sheet: '二维码', expired: true };
+    if (v === '已拒绝') return { ...base, sheet: '二维码', rejected: true };
+    if (v === '连不上中继') return { ...base, relayDown: true };
+    return base;
+  }
+
+  state = {
+    ...Component.fromProp(this.props.sheet),
+    seed: 7,
+    expiry: '4:52',
+    relay: 'default',
+    relayUrl: '',
+    unbindId: null,
+    devices: [
+      { id: 'pad', name: 'July 的 iPad Pro', kind: 'pad', meta: 'iPad Pro 11 英寸 · iPadOS 27.2 · 3 天前在线', online: false },
+      { id: 'phone', name: '旧 iPhone', kind: 'phone', meta: 'iPhone 16 Pro · iOS 27.1 · 12 天前在线', online: false }
+    ]
+  };
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.sheet !== this.props.sheet) this.setState(Component.fromProp(this.props.sheet));
+  }
+
+  qrPath(seed) {
+    const N = 25;
+    let s = seed * 9973 + 17;
+    const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    const m = [];
+    for (let y = 0; y < N; y++) { m.push([]); for (let x = 0; x < N; x++) m[y].push(rnd() < 0.46); }
+    const finder = (ox, oy) => {
+      for (let dy = -1; dy <= 7; dy++) for (let dx = -1; dx <= 7; dx++) {
+        const x = ox + dx, y = oy + dy;
+        if (x < 0 || y < 0 || x >= N || y >= N) continue;
+        const inside = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6;
+        const edge = dx === 0 || dx === 6 || dy === 0 || dy === 6;
+        const core = dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4;
+        m[y][x] = inside && (edge || core);
+      }
+    };
+    finder(0, 0); finder(18, 0); finder(0, 18);
+    for (let i = 8; i <= 16; i++) { m[6][i] = i % 2 === 0; m[i][6] = i % 2 === 0; }
+    let d = '';
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (m[y][x]) d += 'M' + x + ' ' + y + 'h1v1h-1z';
+    return d;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const set = (o) => this.setState(o);
+    const themeClass = (this.props.appearance ?? '浅色') === '深色' ? 'dk' : '';
+    const devices = s.devices.map((d) => ({
+      ...d,
+      isDuo: d.kind === 'duo', isPad: d.kind === 'pad', isPhone: d.kind === 'phone',
+      status: d.online ? '在线' : '离线', dot: d.online ? '#1aae39' : 'var(--faint)',
+      unbind: () => set({ unbindId: d.id })
+    }));
+    const target = s.devices.find((d) => d.id === s.unbindId);
+    return {
+      themeClass, devices, noDevices: devices.length === 0,
+      startPairing: () => set(s.relayDown
+        ? { sheet: '连不上中继' }
+        : { sheet: '二维码', rejected: false, expired: false, seed: s.seed + 1, expiry: '5:00' }),
+      showSheet: s.sheet !== '无',
+      stepQR: s.sheet === '二维码', stepVerify: s.sheet === '核对验证码', stepDone: s.sheet === '已绑定',
+      stepRelayDown: s.sheet === '连不上中继',
+      qrPath: this.qrPath(s.seed), expiry: s.expiry, rejected: s.rejected,
+      expired: s.expired, notExpired: !s.expired,
+      qrOpacity: s.expired ? '0.12' : '1', qrFilter: s.expired ? 'blur(3px)' : 'none',
+      qrLabel: s.expired ? '已过期的绑定二维码（示意）' : '绑定二维码（示意）',
+      refresh: () => set({ seed: s.seed + 1, expiry: '5:00', rejected: false, expired: false }),
+      simulateScan: () => set({ sheet: '核对验证码' }),
+      simulateExpire: () => set({ expired: true, rejected: false }),
+      retryRelay: () => set({ relayDown: false, sheet: '二维码', rejected: false, expired: false, seed: s.seed + 1, expiry: '5:00' }),
+      relayStatus: s.relayDown ? '连不上' : '已连接',
+      relayDot: s.relayDown ? '#dd5b00' : '#1aae39',
+      relayInk: s.relayDown ? 'var(--warnInk)' : 'var(--muted)',
+      closeSheet: () => set({ sheet: '无', rejected: false, expired: false }),
+      reject: () => set({ sheet: '二维码', rejected: true, seed: s.seed + 1, expiry: '5:00' }),
+      confirm: () => set({ sheet: '已绑定' }),
+      finish: () => set({
+        sheet: '无',
+        devices: s.devices.some((d) => d.id === 'duo')
+          ? s.devices
+          : [{ id: 'duo', name: 'July 的 iPhone Duo', kind: 'duo', meta: 'iPhone Duo · iOS 27.2 · 刚刚绑定', online: true }, ...s.devices]
+      }),
+      showAlert: !!target, alertName: target ? target.name : '',
+      cancelUnbind: () => set({ unbindId: null }),
+      confirmUnbind: () => set({ unbindId: null, devices: s.devices.filter((d) => d.id !== s.unbindId) }),
+      relayDefault: s.relay === 'default', relayCustom: s.relay === 'custom',
+      pickDefault: () => set({ relay: 'default' }), pickCustom: () => set({ relay: 'custom' }),
+      relayUrl: s.relayUrl, onRelayUrl: (e) => set({ relayUrl: e.target.value })
+    };
+  }
+}
+</script>
+</body>
+</html>

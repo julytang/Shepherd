@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Shepherd · iPhone Duo 外屏未绑定</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--ov:rgba(0,0,0,0.05);--link:#0075de;color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--ov:rgba(255,255,255,0.08);--link:#62aef0;color-scheme:dark}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
+:focus-visible{outline:2px solid #0075de;outline-offset:2px}
+.ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.glass-tint{background:rgba(0,117,222,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,0.35),rgba(0,0,0,0.04) 0px 4px 18px}
+.glass-tint:active{background:#005bab}
+.num{width:24px;height:24px;border-radius:50%;background:var(--ov);font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.step{display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.43}
+</style>
+</helmet>
+<div class="th {{themeClass}}" style="width:466px;height:678px;position:relative;overflow:hidden;border-radius:8px 59px 59px 8px;background:var(--canvas);font-family:Inter,-apple-system,system-ui,'Segoe UI',Helvetica,Arial,sans-serif;font-feature-settings:'lnum','locl';color:var(--ink);-webkit-font-smoothing:antialiased">
+
+<div style="position:absolute;inset:0;padding:30px 88px 24px 20px;display:flex;flex-direction:column">
+<div aria-hidden="true" style="position:relative;height:150px;margin-bottom:16px">
+<div style="position:absolute;left:0;top:14px;width:92px;height:92px;border-radius:50%;background:#62aef0;opacity:.9"></div>
+<svg viewBox="0 0 100 100" width="44" height="44" style="position:absolute;right:6px;top:0"><path d="M50 4 62 37 97 38 69 59 79 93 50 73 21 93 31 59 3 38 38 37z" fill="#dd5b00"></path></svg>
+<div style="position:absolute;left:30px;top:30px;width:180px;height:112px;border-radius:10px;background:var(--surface);border:2px solid var(--ink2);display:flex;align-items:center;justify-content:center">
+<svg viewBox="-2 -2 29 29" width="64" height="64" style="shape-rendering:crispEdges"><rect x="-2" y="-2" width="29" height="29" fill="#ffffff"></rect><path d="{{qrPath}}" fill="#000000"></path></svg>
+</div>
+<div style="position:absolute;left:12px;top:142px;width:216px;height:8px;border-radius:0 0 6px 6px;background:var(--ink2)"></div>
+<div style="position:absolute;left:196px;top:56px;width:118px;height:88px;border-radius:14px;background:var(--surface);border:2px solid var(--ink2);display:flex;align-items:center;justify-content:center;transform:rotate(-5deg)"><svg class="ic" viewBox="0 0 24 24" width="26" height="26" style="color:#0075de"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"></path><path d="M4 12h16"></path></svg></div>
+</div>
+<h1 style="margin:0 0 8px;font-size:34px;line-height:1.15;font-weight:700;letter-spacing:-0.8px">连接你的 Mac</h1>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:var(--ink2)">Agent 只在 Mac 上运行。连上之后，在这里看进度、审批与作答。</p>
+<ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+<li class="step"><span class="num">1</span><span>在 Mac 上进入「设置 › 设备」，点「绑定新设备…」</span></li>
+<li class="step"><span class="num">2</span><span>扫描 Mac 上的二维码</span></li>
+<li class="step"><span class="num">3</span><span>核对 6 位验证码，在 Mac 上确认</span></li>
+</ol>
+<span style="flex:1"></span>
+<button class="glass-tint" style="width:100%;height:52px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500">扫描二维码</button>
+<p style="margin:10px 0 0;text-align:center;font-size:14px;line-height:1.43;color:var(--muted)">内容端到端加密。不需要账号。</p>
+</div>
+
+<div aria-hidden="true" title="系统区域：灵动岛（外屏摄像头）与竖排状态栏。未绑定时没有工具栏和标签栏，竖条里只剩系统区域" style="position:absolute;top:0;right:0;width:88px;padding-right:8px;display:flex;flex-direction:column;align-items:center;pointer-events:none">
+<span style="margin-top:31px;width:38px;height:38px;border-radius:50%;background:#000000"></span>
+<span style="margin-top:14px;font-size:15px;line-height:20px;font-weight:600">21:34</span>
+<svg class="ic" viewBox="0 0 24 24" width="34" height="34" style="margin-top:4px;stroke-width:1.6"><circle cx="12" cy="12" r="10.5"></circle><path d="M7.4 11.2a6.6 6.6 0 0 1 9.2 0M9.4 13.6a3.7 3.7 0 0 1 5.2 0"></path><circle cx="12" cy="16.2" r="0.9" style="fill:currentColor"></circle></svg>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["浅色","深色"],"default":"浅色","section":"外观"},"$preview":{"width":466,"height":678}}'>
+class Component extends DCLogic {
+  qrPath() {
+    const N = 25;
+    let s = 8 * 9973 + 17;
+    const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    const m = [];
+    for (let y = 0; y < N; y++) { m.push([]); for (let x = 0; x < N; x++) m[y].push(rnd() < 0.46); }
+    const finder = (ox, oy) => {
+      for (let dy = -1; dy <= 7; dy++) for (let dx = -1; dx <= 7; dx++) {
+        const x = ox + dx, y = oy + dy;
+        if (x < 0 || y < 0 || x >= N || y >= N) continue;
+        const inside = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6;
+        m[y][x] = inside && (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4));
+      }
+    };
+    finder(0, 0); finder(18, 0); finder(0, 18);
+    for (let i = 8; i <= 16; i++) { m[6][i] = i % 2 === 0; m[i][6] = i % 2 === 0; }
+    let d = '';
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (m[y][x]) d += 'M' + x + ' ' + y + 'h1v1h-1z';
+    return d;
+  }
+
+  renderVals() {
+    return {
+      themeClass: (this.props.appearance ?? '浅色') === '深色' ? 'dk' : '',
+      qrPath: this.qrPath()
+    };
+  }
+}
+</script>
+</body>
+</html>

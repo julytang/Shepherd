@@ -2,7 +2,8 @@
 
 > **文档归属**：Shepherd 方案计划书 · 第三部分（产品与 UX 规划）  
 > **关联文档**：上游代码审计见 [`docs/01-orca-audit.md`](./01-orca-audit.md)；系统架构与技术路线见 [`docs/02-architecture.md`](./02-architecture.md)；工程落地与里程碑见 [`docs/04-roadmap-and-engineering.md`](./04-roadmap-and-engineering.md)  
-> **范围说明**：本文档定义 Shepherd 的产品定位、相对 `stablyai/orca` 的功能裁剪边界、两项关键产品决策专题、macOS 原生信息架构与交互规范，以及可量化的验收标准。多模型本地路由与额度容灾网关能力**不在本期范围**，仅列为远期演进扩展点。
+> **范围说明**：本文档定义 Shepherd 的产品定位、相对 `stablyai/orca` 的功能裁剪边界、两项关键产品决策专题、macOS 原生信息架构与交互规范，以及可量化的验收标准。多模型本地路由与额度容灾网关能力**不在本期范围**，仅列为远期演进扩展点。  
+> **修订状态**：修订版 v3（2026-11-26）。v2：更新了竞品信息与差异化表述，修正了审批与信任门控的承诺范围，性能指标统一标注为未实测目标。v3：对话只保留 Native Chat，终端抽屉移出规划（3.1 专题 A）；Claude 的权限档位、仓库信任门与备用路径按 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4 定稿；Agent 接入按 provider 组织（§3.1.5）。v4（2026-11-27）：进程清理改为每个 Agent 一个看守进程加进程树标记（[`docs/02-architecture.md`](./02-architecture.md) §3.3.3），相应更新了验收清单与环境变量表述。v5（2026-11-27）：最低系统升到 macOS 27；Mobile Companion 改回范围，列为 P1。界面设计见仓库 `design/`。
 
 ---
 
@@ -22,7 +23,7 @@
 | :--- | :--- | :--- |
 | **角色特征** | 高频使用 Claude Code + Codex 双持（及部分 ACP 长尾 Agent）的资深全栈 / 基础设施 / 独立 macOS 开发者 | 需要并行推进多项需求、重构与 Bugfix 的 Tech Lead / Staff Engineer |
 | **日常工作方式** | 同时推进 2–5 个独立任务；已有顺手的主力编辑器（Cursor / Zed / VS Code / Neovim）；偏爱键盘流与低干扰环境 | 把调研、单测、模块拆分派给多个隔离代理并行执行，自己专注架构把关、权限审批与 PR 审查 |
-| **核心痛点** | 1. **工作区碰撞**：多个代理改同一目录导致 Git 状态混乱与文件覆盖。<br>2. **Electron 臃肿**：重型全能工作台常驻占用 1–2GB+ 内存，塞满内嵌浏览器、内置编辑器、看板等用不上的功能。<br>3. **多终端失焦**：纯终端多开（tmux / iTerm / cmux）缺乏结构化审批、变更摘要与图形 Diff 闭环，切窗口成本高。<br>4. **厂商锁定**：Claude Code Desktop 与 Codex App 各自圈地，无法按任务特长自由混排模型与代理。 | 1. **注意力过载**：难以一眼识别哪个后台代理卡在权限确认、哪个已完成待审、哪个报错中断。<br>2. **环境污染担忧**：不希望编排工具偷偷往 `~/.claude` 或项目仓库注入私有 Skill/脚本，破坏团队规范或平白消耗 Token 额度。 |
+| **核心痛点** | 1. **工作区碰撞**：多个代理改同一目录导致 Git 状态混乱与文件覆盖。<br>2. **Electron 臃肿**：重型全能工作台常驻占用 1–2GB+ 内存，塞满内嵌浏览器、内置编辑器、看板等用不上的功能。<br>3. **多终端失焦**：纯终端多开（tmux / iTerm）缺乏结构化审批、变更摘要与图形 Diff 闭环，切窗口成本高。<br>4. **厂商锁定**：Claude Code Desktop 与 Codex App 各自圈地，无法按任务特长自由混排模型与代理。 | 1. **注意力过载**：难以一眼识别哪个后台代理卡在权限确认、哪个已完成待审、哪个报错中断。<br>2. **环境污染担忧**：不希望编排工具偷偷往 `~/.claude` 或项目仓库注入私有 Skill/脚本，破坏团队规范或平白消耗 Token 额度。 |
 
 ### 1.3 产品原则与非目标（Non-Goals）
 
@@ -30,21 +31,27 @@
 - **macOS 原生优先（锁定纯 Swift 6 原生内核）**：深度利用 macOS 原生窗口管理、菜单栏、系统通知、明暗材质与快捷键肌肉记忆；基于 [`docs/01-orca-audit.md`](./01-orca-audit.md) 的硬事实审计，彻底放弃 Electron 与重型 Node Sidecar（避免 122.6 MB Node 运行时包体税与多进程内存膨胀），直接采用纯 Swift 6 原生内核。
 - **零侵入、零锁定、零闭源 SDK 依赖（BYOA）**：尊重用户本机已有的 Claude Code / Codex / ACP CLI 与认证环境；**绝不打包受 Anthropic 商业条款约束的闭源 `@anthropic-ai/claude-agent-sdk`**，不残留任何 `ORCA_*` / `CLAUDE_CODE_ENTRYPOINT=orca` 上游标识；默认不改写仓库文件、不向 Agent 注入私有提示词或全局 Skill。
 - **明确非目标（Out-of-Scope / Defer）**：
-  - 不内置浏览器、内置代码编辑器、项目看板、移动端中继或远程 SSH/Docker 编排。
+  - 不内置浏览器、内置代码编辑器、项目看板或远程 SSH/Docker 编排。（v5：移动端 Companion 已改回范围，见 §2。）
   - **多模型本地路由与额度容灾网关留待后续阶段**：本期仅保持子进程环境变量注入边界干净，不内置任何代理网关或协议转换层。
 
 ### 1.4 竞品差异化矩阵
 
 | 对比维度 | **Shepherd（本方案）** | **Orca** (`stablyai/orca`) | **Paradev**（原 Superset） | **Conductor**（Meta 收购） | **Emdash / Parallel Code** | **cmux** | **Claude Code / Codex Desktop** |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **核心定位** | macOS 原生极简多 Agent 指挥台 | 全功能开源跨平台 Electron ADE 战舰 | Mac 优先、偏团队与 Stacked PR 的编排台 | macOS 原生极简多 Agent 体验标杆 | 轻量开源多代理并发工作台 | 基于 `libghostty` 的原生极客多代理终端 | 第一方厂商专属桌面端 |
+| **核心定位** | macOS 原生极简多 Agent 指挥台 | 全功能开源跨平台 Electron ADE 战舰 | Mac 优先、偏团队与 Stacked PR 的编排台 | macOS 原生极简多 Agent 体验标杆（2026-11 被 Meta 收购，桌面端只更新到 2027 年初） | 轻量开源多代理并发工作台 | 基于 `libghostty` 的原生极客多代理终端 | 第一方厂商专属桌面端 |
 | **技术栈与原生度** | **纯 Swift 6 原生（SwiftUI + AppKit）**，包体 ≤ 25 MB，冷启动 ≤ 400 ms | Electron 45 + Node v24.22.3（~370 万 LOC，重型全栈） | Electron / Web 混合，体量较重 | 原生 macOS，体验极佳 | 多为 Electron / Web 壳 | **原生 Swift/AppKit + `libghostty`**，性能极致 | Electron / 混合应用，跟随官方大客户端演进 |
-| **主交互形态** | **Native Chat 主流** + `⌘J` 按需极简终端抽屉 | Terminal + Native Chat + 编辑器 + 浏览器全套 | Terminal / Chat + 浏览器预览 + Diff | Native Chat 为主 + 简洁审查流 | 偏终端/面板并行视图 | **纯 GPU 终端窗格** + 侧栏通知环（无结构化 Chat） | 各自优化的 Native Chat / 面板 |
+| **主交互形态** | **只有 Native Chat**；需要 shell 时 `⌘⇧T` 跳系统终端 | Terminal + Native Chat + 编辑器 + 浏览器全套 | Terminal / Chat + 浏览器预览 + Diff | Native Chat 为主 + 简洁审查流 | 偏终端/面板并行视图 | GPU 终端窗格为主 + 侧栏通知环；2026-10 起有「Agent chat panes (beta)」 | 各自优化的 Native Chat / 面板 |
 | **Git Worktree 隔离** | **核心一等公民**（支持 `shepherd.yaml` 并兼容 `orca.yaml` 与 SHA-256 脚本门控） | 完整支持（`orca.yaml` `worktree.sharedDirectories` + 信任哈希） | 完整支持，强 Stacked PR 流水线 | 完整支持，开箱即用 | 支持基础 Worktree 隔离 | 依赖外部脚本 / CLI 自行管理 | 支持内置 Worktree（绑定各自生态） |
-| **跨厂商 BYOA** | **一等支持**（Claude Code + Codex + ACP，零闭源 SDK） | 一等支持（Claude / Codex / 19 种 ACP），但依赖闭源 Claude SDK | 支持多 CLI Agent | 支持多代理，但归属 Meta 后长期中立性存疑 | 支持主流 CLI 代理 | 任意终端 CLI 均可运行 | **单一厂商锁定**（各自只跑自家代理） |
-| **图形化 Diff & PR** | **原生轻量 Diff Inspector + 一键 Commit/PR** | 完整内置（基于 Web/Monaco） | 完整内置（偏团队协作） | 简洁好用的原生 Diff/PR | 基础 Diff 查看 | **无图形 Diff 审查**，需切外部工具 | 支持（绑死自家体系） |
-| **开源与可控性** | **MIT 开源可控、无遥测、零侵入、合规边界清晰** | MIT 开源，但代码库庞大且内置商业条款 SDK | 开源，逐步走向团队商业化功能 | **闭源**（被 Meta 收购，路线不可控） | 开源但产品成熟度与原生质感有限 | 开源，聚焦终端极客路线 | **闭源第一方** |
-| **与 Shepherd 边界** | — | Shepherd 的协议活字典与裁剪参照系，仅提取 <5% 核心协议能力原生重构 | Shepherd 不做团队云同步与重型 Stacked PR 平台 | Shepherd 对标其原生极简质感，但保持开源、跨厂商与本地可控 | Shepherd 强调 macOS 原生渲染与结构化 Chat/审批体验 | Shepherd 面向更愿看结构化 Chat/Diff 而非满屏终端流的开发者 | Shepherd 打破单厂商锁定，让 Claude 与 Codex 同台协同 |
+| **跨厂商 BYOA** | **一等支持**（Claude Code + Codex + ACP，零闭源 SDK；每个 Agent 的接入是可独立维护的 provider） | 一等支持（Claude / Codex / 19 种 ACP），但依赖闭源 Claude SDK | 支持多 CLI Agent | 支持多代理；被 Meta 收购后进入停更倒计时 | 支持主流 CLI 代理 | 任意终端 CLI 均可运行 | **单一厂商锁定**（各自只跑自家代理） |
+| **图形化 Diff & PR** | **原生轻量 Diff Inspector + 一键 Commit/PR** | 完整内置（基于 Web/Monaco） | 完整内置（偏团队协作） | 简洁好用的原生 Diff/PR | 基础 Diff 查看 | 已有 Diff 查看器（已阅跟踪、文件过滤）与评审评论相关命令；更新日志中未见应用内创建 PR | 支持（绑死自家体系） |
+| **开源与可控性** | **MIT 开源可控、无遥测、零侵入、合规边界清晰** | MIT 开源，但代码库庞大且内置商业条款 SDK | 开源，逐步走向团队商业化功能 | **闭源**（被 Meta 收购，Conductor Cloud 已关停，桌面端 2027 年初停止更新） | 开源但产品成熟度与原生质感有限 | 开源，聚焦终端极客路线 | **闭源第一方** |
+| **与 Shepherd 边界** | — | Shepherd 的协议活字典与裁剪参照系，仅提取 <5% 核心协议能力原生重构 | Shepherd 不做团队云同步与重型 Stacked PR 平台 | Shepherd 对标其原生极简质感，但保持开源、跨厂商与本地可控；它的停更窗口是 Shepherd 最直接的时间机会 | Shepherd 强调 macOS 原生渲染与结构化 Chat/审批体验 | cmux 已补上 Diff 与 Chat 面板，「有无图形 Diff」不再是差异点；Shepherd 的差异在跨厂商待处理列表与带上下文的审批 | Shepherd 打破单厂商锁定，让 Claude 与 Codex 同台协同 |
+
+> **v2 差异化重述**（竞品信息查证于 2026-11-26，来源见 [`docs/01-orca-audit.md`](./01-orca-audit.md) §7.5）：
+>
+> - **原有的两个差异点已经过时**：矩阵曾把「有图形 Diff」「有结构化 Chat」当作相对 cmux 的差异点，这两条在 2026 年下半年已不成立。
+> - **更站得住的差异化是三件事**：跨厂商的统一待处理列表（谁在等我）、带上下文的审批（看清再放行）、审批结果与代码变更之间的关联（放行之后改了什么）。
+> - **Conductor 停更是有截止时间的窗口**：它的桌面端 2027 年初停止更新，这应当影响 MVP 范围的取舍。是否兼容 Conductor 的仓库配置以降低迁移成本，列为待评估项。
 
 ---
 
@@ -54,70 +61,60 @@
 
 > **优先级定义**：
 > - **MVP**：首版必须完整闭环，缺一不可。
-> - **P1**：首版上线后紧随迭代，补齐高频进阶场景与逃生舱。
+> - **P1**：首版上线后紧随迭代，补齐高频进阶场景。
 > - **P2**：架构预留扩展点，待核心体验稳定后按需评估。
 > - **Out-of-Scope**：明确不做，防止产品重新膨胀为第二个重型 IDE。
 
 | 功能模块 | Orca 现状对应 | Shepherd 决策 | 优先级 | 设计说明与替代方案 |
 | :--- | :--- | :--- | :--- | :--- |
 | **Git Worktree 隔离生命周期** | Worktree 创建、切换、分支管理、孤儿清理 | **Keep** | `MVP` | 核心地基：自动派生独立分支与 Worktree 目录，支持同步 Base 分支状态、安全删除检查（未提交改动二次确认）与孤儿 Worktree 清理。 |
-| **项目初始化配置（`shepherd.yaml`）** | `orca.yaml`（`worktree.sharedDirectories`、`scripts.setup`/`archive`、`setupAgentStartupPolicy`）+ Repo 级设置 `symlinkPaths` + SHA-256 脚本信任门控 | **Keep（原生对齐）** | `MVP` | 优先读取 `shepherd.yaml`，**向后兼容读取现有 `orca.yaml`**。运行时合并 Repo 级本地 `symlinkPaths` 与 YAML 的 `worktree.sharedDirectories`（后者经 `git check-ignore` 强制校验仅允许共享已存在且被忽略的目录，防受控文件误软链）；支持 `scripts.setup`/`scripts.archive` 与 **SHA-256 内容哈希信任门控弹窗**；忽略 VM 配方（`environmentRecipes`）等外围字段。 |
-| **Native Chat 主对话流（Codex & Claude Code）** | Codex `app-server` + Claude Native Chat（绑定闭源 SDK） | **Keep（去闭源 SDK 重构）** | `MVP` | **一等公民**：Codex 直连 `codex app-server` stdio NDJSON；Claude Code 直接驱动用户本机 `claude` CLI 的 `stream-json` 双向控制协议（**零 `@anthropic-ai/claude-agent-sdk` 依赖**，彻底规避商业条款红线）。完整支持流式文本、可折叠 Thinking、工具调用卡片、内联权限审批条、Turn 变更摘要卡、消息排队与中断。 |
-| **长尾 Agent 接入（ACP Client）** | `src/main/acp/*`（JSON-RPC 2.0，19 种 CLI） | **Keep（分层）** | `MVP`（标准流）<br>`P1`（多方言扩展） | MVP 实现标准 JSON-RPC 2.0 over stdio NDJSON 通用协议基础流（文本/工具/权限请求），确保不锁死在两家厂商；P1 逐步补齐主流长尾 Agent 方言适配。 |
+| **项目初始化配置（`shepherd.yaml`）** | `orca.yaml`（`worktree.sharedDirectories`、`scripts.setup`/`archive`、`setupAgentStartupPolicy`）+ Repo 级设置 `symlinkPaths` + SHA-256 脚本信任门控 | **Keep（原生对齐）** | `MVP` | 优先读取 `shepherd.yaml`，**向后兼容读取现有 `orca.yaml`**。运行时合并 Repo 级本地 `symlinkPaths` 与 YAML 的 `worktree.sharedDirectories`（后者经 `git check-ignore` 强制校验仅允许共享已存在且被忽略的目录，防受控文件误软链）；支持 `scripts.setup`/`scripts.archive` 与 **入口信任门控弹窗（命令文本 SHA-256）**；忽略 VM 配方（`environmentRecipes`）等外围字段。 |
+| **Native Chat 主对话流（Codex & Claude Code）** | Codex `app-server` + Claude Native Chat（绑定闭源 SDK） | **Keep（去闭源 SDK 重构）** | `MVP` | **一等公民**：Codex 直连 `codex app-server` stdio NDJSON；Claude Code 直接驱动用户本机 `claude` CLI 的 `stream-json` 双向控制协议（**零 `@anthropic-ai/claude-agent-sdk` 依赖**，彻底规避商业条款红线）。完整支持流式文本、可折叠 Thinking、工具调用卡片、内联权限审批条、问题作答卡与表单填写卡（v2 新增，见 4.2）、Turn 变更摘要卡、消息排队与中断。 |
+| **长尾 Agent 接入（ACP Client）** | `src/main/acp/*`（JSON-RPC 2.0，19 种 CLI） | **Keep（分层）** | `MVP`（标准流）<br>`P1`（多方言扩展） | MVP 实现标准 JSON-RPC 2.0 over stdio NDJSON 通用协议基础流（文本/工具/权限请求），确保不锁死在两家厂商；P1 逐步补齐主流长尾 Agent 方言适配。**v3**：ACP 客户端同时是外部 provider 的宿主，用户可以手动添加一个说 ACP 的 Agent 作为 provider；Claude 的备用路径 `claude-acp` 也经它接入，所以 MVP 的基础流不可削减（[`docs/02-architecture.md`](./02-architecture.md) §3.1.5）。 |
 | **原生 Diff 审查与一键 Commit / PR** | 变更面板 + Diff Viewer + PR 创建 | **Keep（原生重构）** | `MVP` | 按需展开的原生 Diff Inspector：支持文件树、Unified / Split 视图、逐文件与逐 Hunk 审阅/丢弃、一键 Commit（可 AI 草拟或手改）及调用 `gh` / GitHub API 一键创建并查看 PR。 |
 | **macOS 系统通知与菜单栏状态徽章** | 桌面通知 + 窗口内角标 | **Keep（原生增强）** | `MVP` | 原生 `MenuBarExtra` 图标随最高优先状态变色/角标；`UNUserNotificationCenter` 精准推送「待审批 / 已完成 / 报错」三类事件，点击直达对应会话审批条。 |
 | **外部主力 IDE / 工具一键跳转** | 内置编辑器为主，辅以 Open in... | **Keep（升级为主路径）** | `MVP` | 一键在 **Cursor / Zed / VS Code / Xcode / Finder / 系统默认终端** 中打开当前 Worktree 目录，并支持从 Diff 行号精准跳转到外部 IDE 对应文件与行。 |
 | **本地会话持久化与检索** | `node:sqlite` 多库分域落盘 | **Keep（原生精简）** | `MVP`（持久化）<br>`P1`（全文搜索） | 原生 `GRDB.swift`（SQLite WAL）存储 Repo、Worktree、Session 元数据、脚本信任哈希与 Transcript 缓存，支持重启恢复；P1 基于 FTS5 补齐跨会话全文检索。 |
-| **可折叠极简终端抽屉** | 全功能多标签/分屏终端 + POSIX `curl` Hook / OSC 7501 | **Trim** | `P1`（锁定 M3 交付；MVP 预留槽位与系统终端跳转） | 默认隐藏，按 `⌘J` 呼出当前 Worktree 单一轻量 PTY 抽屉（仅作应急逃生舱，详见 3.1 专题 A）。P1（锁定 M3）优先用零侵入 `OSC 7501` 感知终端状态，可选按需启用 macOS POSIX Shell + `curl` Loopback Hook（无需 `.exe`）。MVP（M0–M2）先以 `⌘⇧T` 系统终端跳转过渡。 |
+| **内嵌终端** | 全功能多标签/分屏终端 + POSIX `curl` Hook / OSC 7501 | **Cut（v3）** | `Out-of-Scope` | 原定 P1 的 `⌘J` 终端抽屉移出规划。对话只有 Native Chat 一种形态；需要 shell 时用 `⌘⇧T` 跳系统终端（MVP）。理由与代价见 3.1 专题 A。 |
 | **本地 `shepherd` CLI 工具** | `orca` 全套 CLI 控制指令 | **Trim** | `P1` | 仅保留面向**人类开发者**的轻量快捷指令（如 `shepherd open .`、`shepherd new "fix auth"`），不作为 Agent 强制控制通道注入。 |
 | **内置 Monaco 代码编辑器** | 内嵌完整编辑器 Tab | **Cut** | `Out-of-Scope` | **第一刀砍掉**：绝不在编排器里维护低配编辑器。轻量审阅用原生只读 Diff Inspector，深度手改一键 `⌘O` 交给 Cursor / Zed / VS Code。 |
 | **内嵌 Chromium 浏览器 & Design Mode** | 内置浏览器窗格、DOM 选中标注 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：移除了整套 Chromium 渲染进程与内存黑洞。预览本地服务直接点击端口链接在系统默认浏览器打开。 |
-| **Mobile Companion 与 E2E Relay** | 手机端远程监控 + 端到端加密中继 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：消除常驻公网中继、设备配对安全面与移动端维护成本。 |
+| **Mobile Companion 与中继** | 手机端远程监控 + 端到端加密中继 | **Keep（v5 改回范围）** | `P1` | iPhone、iPad、iPhone Duo 共用一个 iOS App。只做状态查看、审批与作答、Diff 审查、派发新任务；Agent、Worktree 与 git 操作仍只在 Mac 执行。不做账号，靠设备绑定建立信任；经自建中继连接，内容端到端加密，中继只转发密文（[`docs/02-architecture.md`](./02-architecture.md) §3.5）。「完全放行」档位不在移动端提供，锁屏通知不提供批准按钮。 |
 | **远程 SSH / Docker / 云节点管理** | 远程主机与容器化 Worktree 调度 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：Shepherd 专注本机 macOS 极致轻快体验，远程开发交由 IDE Remote 或专门工具承担。 |
 | **Linear / Jira / GitHub 全套看板** | 内置 Issue 看板与状态流转视图 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：不把指挥台变成项目管理软件。远期（P2）最多允许粘贴 Issue URL 自动抓取描述作为任务上下文，绝不建看板界面。 |
 | **复杂 DAG 可视化编排器** | 多阶段节点连线与依赖图执行 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：避免过度抽象与低频“画流程图编程”；日常任务通过清晰的多 Worktree 列表即可直觉管理。 |
 | **定时自动化任务（Cron / Schedules）** | 定时拉起 Agent 执行后台任务 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：定时无人值守任务属于 CI/GitHub Actions 或系统 `launchd` 范畴，留在桌面 App 中反而增加后台常驻复杂度与额度误耗风险。 |
 | **Agent 自驱派活模式（Opt-in）** | 默认注入 `orchestration` + `orca-cli` Skill | **Defer** | `P2` | MVP 坚持零注入（详见 3.2 专题 B）；P2 作为显式 Opt-in 开关，以会话级轻量本地 MCP Server 形态引入。 |
-| **团队云同步 / 多人协作会话** | 团队配置与云端工作区共享 | **Defer** | `P2` | 本期 100% 本地优先（Local-First），零账号登录、零云端依赖。 |
+| **团队云同步 / 多人协作会话** | 团队配置与云端工作区共享 | **Defer** | `P2` | 本期 100% 本地优先（Local-First），Mac 端零账号登录、零云端依赖；Companion 不需要账号，但需要中继（§3.5）。 |
 | **多模型本地路由与额度容灾网关** | （无原生内置，属外部网关能力） | **Defer** | `P2` | **本期明确忽略**：仅在进程启动层保持环境变量注入干净，留待后续阶段按需对接外部本地代理或网关方案。 |
 
 ---
 
 ## 3. 关键产品决策专题
 
-### 3.1 专题 A：纯 Native Chat vs Native Chat + 可折叠极简终端抽屉
+### 3.1 专题 A：只做 Native Chat，不内嵌终端（v3 改写）
 
-#### 为什么不能只做“绝对纯 Native Chat”（4 个现实局限）
+> **v3 决定**：对话只有 Native Chat 一种形态。原方案的「90% Native Chat + 10% `⌘J` 终端抽屉」取消，终端不再承担 Claude 的接入或备用职责。架构侧的说明见 [`docs/02-architecture.md`](./02-architecture.md) §2.4 与 §3.1.4。
 
-将 Native Chat 确立为主交互界面是 Shepherd 区别于 `cmux` / `tmux` 的核心优势（可读性高、审批直观、与 Diff 强绑定），但基于当前 Claude Code 与 Codex CLI 生态的真实工程现状，**完全封死终端通道会撞上 4 个绕不开的硬墙**：
+#### 原方案保留终端的四个理由，现在各自怎么处理
 
-1. **Claude 订阅窗口额度消耗与合规边界差异（非交互 `stream-json` vs 交互式 TUI）**
-   - 经上游审计证实（见 [`docs/01-orca-audit.md`](./01-orca-audit.md) 第 4.4 节），Claude Code 的非交互 `stream-json` / SDK 入口与默认交互式终端 CLI 存在明显分化（Orca 甚至显式改写 `CLAUDE_CODE_ENTRYPOINT=orca` 并为 `rate_limit_event`/429 专门编写兜底逻辑，且闭源 `@anthropic-ai/claude-agent-sdk` 受 Anthropic 商业条款限制）。
-   - Shepherd 虽以纯 Swift 直连用户本机 `claude` CLI 彻底规避闭源 SDK 合规红线，但在实际多轮自主工具循环与上下文重放中，非交互 `stream-json` 路径仍可能以显著高于手工节奏的倍率消耗 Pro/Max 5 小时滚动窗口额度（社区实测普遍快 **1.8×–3×+**），且在 Pro 套餐下更易触发短时 TPM/RPM 限流。当用户额度紧张、需实时查看 `/usage` 水位或切回交互式人工节拍时，必须有一条零摩擦切回原版交互式 CLI 的逃生舱。
-2. **原版 TUI 专属斜杠命令与前沿交互缺失**
-   - 上游审计进一步证实：Claude Code 在 `stream-json` 模式下仅通过 `system(init)`/`commands_changed` 暴露部分命令与技能，原版 TUI 专属命令如 `/btw`（不污染主上下文的临时侧问）、`/recap`、`/compact`、`/cost`、`/usage`、`/login`、`/doctor` 无法原生直通（Orca 被迫通过分叉会话自行模拟 `/side`、`/btw` 与 `/recap`）；ACP 侧更是普遍不支持 `rewind`，部分 Agent（如 `omp`）还须设置 `PI_NO_PTY=1` 关闭 TUI 覆层命令。
-   - 第三方 Native Chat UI 永远存在适配滞后窗口，强行 1:1 复刻所有上游斜杠命令只会拖垮维护成本。
-3. **需要真实 PTY/TTY 句柄的交互式命令边界**
-   - Native Chat 会话天然没有终端句柄（`term_...`），但研发工作流离不开真实 TTY/PTY 场景：CLI 首次 OAuth 登录鉴权、交互式 `git rebase -i`、带密码/YubiKey/2FA 确认的部署脚本、持续输出的本地 Dev Server（如 `pnpm dev` / `swift test --watch`）、交互式 REPL（`psql` / `rails c`）以及尚未支持 ACP 的长尾 CLI 工具。
-4. **CLI 启动参数、自定义 Wrapper 与多账号 Profile 切换**
-   - 上游审计显示，Orca 为了在 Native Chat 中模拟用户 Shell 环境与多账号家目录隔离（`CLAUDE_CONFIG_DIR`、`CODEX_HOME`、`ANTHROPIC_API_KEY` 清洗），维护了近 **1.4 万行** 账号隔离代码。而在紧急排障、切换工作/个人账号或尝鲜上游实验性 CLI Flag 时，直接进当前 Worktree 继承用户 Shell 配置的终端抽屉才是最零阻力、零维护负担的方案。
-
-#### Shepherd 的默认 UX 策略（90/10 原则）
-
-| 场景占比 | 交互模式 | 详细设计策略 |
+| 原先的理由 | 现在的处理 | 留下的代价 |
 | :--- | :--- | :--- |
-| **~90% 日常任务** | **纯净 Native Chat（终端默认隐藏）** | 新建或切入 Worktree 默认**完全不显示终端**，界面保持极简双栏（左侧状态树 + 中间对话流）。高频的 `/compact`、切换模型、中断、重试等基础操作直接内化为 Native Chat 原生按钮与 `/` 快捷补全。 |
-| **~10% 应急与进阶场景** | **一键可折叠极简终端抽屉（`⌘J`）** | 按 `⌘J` 在当前 Worktree 底部平滑展开高度可调的轻量终端抽屉（默认占视图高度 30%–35%，可拖拽调整，再次 `⌘J` 折叠且后台进程保活）。自动 `cd` 到当前 Worktree 根目录并加载相同的环境变量。 |
+| **Claude 订阅额度消耗与用量政策**：非交互路径可能比交互式 TUI 更费额度；Anthropic 曾宣布把 `claude -p` 用量移出订阅额度，2026 年 6 月暂停，未给恢复时间（[`docs/01-orca-audit.md`](./01-orca-audit.md) §7.5） | 接受该风险。会话头部显示登录与计费来源；M0 实测真实消耗，替换掉原稿无出处的「1.8×–3×+」；政策恢复时的出路在产品之外：改用 API Key，或经外部网关换模型与账号 | 产品内没有对冲手段。政策恢复后，订阅登录的 Claude 会话会按新规则计费 |
+| **TUI 专属斜杠命令**：`/btw`、`/recap`、`/usage`、`/login`、`/doctor` 等在 `stream-json` 模式下无法直通 | 只支持无头模式下可用的部分，清单由 M0 列出；高频操作（压缩上下文、切换模型、中断、重试）做成 Native Chat 的原生按钮与 `/` 补全；用量从结果帧与限流事件读取 | `/btw` 这类 TUI 专属交互在 Shepherd 里没有 |
+| **需要真实终端的交互式命令**：首次登录、`git rebase -i`、带 2FA 的脚本、本地 Dev Server、REPL | `⌘⇧T` 在用户的默认终端里打开当前 Worktree；登录由用户事先在自己的终端里完成，Shepherd 检测到未登录时给出提示 | 这些操作发生在 Shepherd 之外，侧栏看不到它们的状态 |
+| **启动参数、自定义 Wrapper 与多账号切换** | 会话环境与用户终端一致（v4：只多一个用于进程清理的标记变量），不清理 `CLAUDE_CONFIG_DIR` 等变量；设置页可指定二进制路径；账号管理不在范围内 | 想临时换账号或试验 CLI 参数，需要到系统终端里做 |
 
-**极简终端抽屉的四条克制守则**：
-1. **单 Worktree 单抽屉，拒绝变成终端复用器**：默认提供 1 个干净 Shell（不做多窗格分屏大战；需要重度终端复用请直接用 `⌘⇧T` 打开用户自己的 Ghostty / iTerm）。
-2. **支持“一键接管原版 TUI（Resume in Terminal）”**：抽屉顶部提供一个快捷动作按钮，可在当前 Worktree 的终端中以相同 Session ID 拉起原版交互式 CLI（如 `claude --resume <session_id>` 或 `codex resume <session_id>`），用完 `/btw` 或 `/usage` 退出后回到 Native Chat 继续查看状态，且同一时刻自动互斥锁保护，防止 Native Chat 与 TUI 并发写坏同一会话文件。
-3. **macOS 零侵入状态感知优先（`OSC 7501` 优先 + 可选 POSIX `curl` Hook）**：
-   - 经上游审计证实，macOS 终端 Hook 无需 Windows `.exe` 二进制，而是轻量 **POSIX Shell + `curl` Loopback HTTP**，且新版 Claude Code（≥ 2.1.295）与 Codex（≥ 0.163）已原生支持 **`OSC 7501`** 终端状态协议。
-   - Shepherd P1 终端抽屉默认仅开启**完全零磁盘侵入的 `OSC 7501` 被动解析**以更新侧边栏运行/等待状态；仅当用户在设置中主动开启「增强终端审批拦截（Opt-in）」时，才挂载本地 Loopback HTTP + POSIX `curl` 同步决策 Hook（Claude `PreToolUse` Fail-open 机制），绝不默认改写用户的 `~/.claude` 或 `~/.codex/hooks.json`。
-4. **MVP → P1 平滑演进路径**：
-   - **MVP**：界面右上角与快捷键体系从 Day 1 预留终端入口；在内置抽屉落地前，提供 `⌘⇧T`「一键在系统终端 / Ghostty / iTerm2 打开当前 Worktree 目录」作为零成本应急兜底。
-   - **P1（锁定 M3 交付）**：合入内嵌可折叠极简终端抽屉（`⌘J`，底层首选纯 Swift `SwiftTerm`，P2 按需无缝切换 `libghostty`，详见 [`docs/02-architecture.md`](./02-architecture.md)），补齐应用内一站式逃生舱体验。
+#### 这个决定换来什么
+
+- **一种交互形态**。不需要在 Native Chat 与 TUI 之间做会话互斥、状态同步和转录回填。
+- **少一个依赖和一个模块**。不引入终端引擎，不维护 PTY 容器池与终端 Hook。
+- **备用路径留在 Native Chat 内**。Claude 的备用是外部 provider `claude-acp`：界面不变，底层换成用户自行安装的 ACP 适配器，切换后新开会话。
+
+#### 用户会感知到的限制
+
+- 不能在 Shepherd 里把一个会话切到原版 TUI 再切回来。用户在系统终端里运行的 `claude` 是独立会话，Shepherd 不跟踪。
+- `claude-acp` 需要用户自己安装 Node ≥ 22 与适配器，并且同样受用量政策影响。
 
 ---
 
@@ -155,9 +152,9 @@
 
 ### 4.1 布局架构与 ASCII 线框图
 
-Shepherd 采用 **“默认极简双栏 + 按需展开右侧 Diff Inspector + 按需展开底部终端抽屉”** 的渐进式空间布局（遵循 macOS `NSSplitViewController` 原生体验，支持流畅折叠与宽度记忆）。
+Shepherd 采用 **“默认极简双栏 + 按需展开右侧 Diff Inspector”** 的渐进式空间布局（遵循 macOS `NSSplitViewController` 原生体验，支持流畅折叠与宽度记忆）。
 
-#### 视图 A：日常开发态（默认双栏 · 终端与 Diff 收起）
+#### 视图 A：日常开发态（默认双栏 · Diff 收起）
 
 ```text
 +---------------------------------------------------------------------------------------------------+
@@ -193,7 +190,7 @@ Shepherd 采用 **“默认极简双栏 + 按需展开右侧 Diff Inspector + �
       [C] Claude Code   [X] Codex          [A] ACP Agent
 ```
 
-#### 视图 B：代码审查三栏态（`⌘⇧D` 展开右侧 Diff Inspector）+ 底部应急终端抽屉（`⌘J`）
+#### 视图 B：代码审查三栏态（`⌘⇧D` 展开右侧 Diff Inspector）
 
 ```text
 +--------------------+-------------------------------------+----------------------------------------+
@@ -208,13 +205,13 @@ Shepherd 采用 **“默认极简双栏 + 按需展开右侧 Diff Inspector + �
 |                    |  | [ Diff Cmd+Sh+D ] [ Cmd+O ]   |  | internal/auth/oauth.go     [Open Line] |
 |                    |  +-------------------------------+  | @@ -42,6 +42,11 @@  [Stage]  [Discard] |
 |                    |                                     |  42  func HandleCallback(w, r) {       |
-|                    |-------------------------------------|  43 - token, err := exchange(code)     |
-|                    |  输入跟进指令...             [ Ret ]|  44 + verifier := loadVerifier(r)      |
-|                    +-------------------------------------+  45 + token, err := exchangePKCE(...)  |
-|                    | TERMINAL (feat/oauth-pkce) [Resume] |  46   if err != nil { return err }     |
-|                    | ~/.../wt/feat-oauth-pkce %          |----------------------------------------|
-|                    | $ claude --resume 8f2a...           | Commit: feat(auth): enforce OAuth PKCE |
-| [ + New (Cmd+N) ]  | > /usage                            | [ Commit ]   [ Create PR (Cmd+Sh+P) ]  |
+|                    |                                     |  43 - token, err := exchange(code)     |
+|                    |                                     |  44 + verifier := loadVerifier(r)      |
+|                    |                                     |  45 + token, err := exchangePKCE(...)  |
+|                    |                                     |  46   if err != nil { return err }     |
+|                    |                                     |----------------------------------------|
+|                    |-------------------------------------| Commit: feat(auth): enforce OAuth PKCE |
+| [ + New (Cmd+N) ]  |  输入跟进指令...             [ Ret ]| [ Commit ]   [ Create PR (Cmd+Sh+P) ]  |
 +--------------------+-------------------------------------+----------------------------------------+
 ```
 
@@ -224,9 +221,9 @@ Shepherd 采用 **“默认极简双栏 + 按需展开右侧 Diff Inspector + �
    - **视觉降噪与状态优先**：默认按 Repository 分组，支持顶部一键切至 `NeedMe` 视图（仅置顶「待审批」与「报错」项，方便高并发时瞬间清零阻塞）。
    - **五态指示点规范**：
      - `Running`（绿色呼吸点）：代理正在推理或执行工具，副标题显示已运行计时或当前动作摘要（如 `Running tests...`）。
-     - `Needs Approval`（琥珀色高亮徽章 + 左侧竖条）：最高优先级，永不折叠隐藏。
+     - `Needs Approval`（琥珀色高亮徽章 + 左侧竖条）：最高优先级，永不折叠隐藏。v2：该状态同时覆盖等待作答与等待填表，界面文案建议统一为「等你处理」。
      - `Completed`（蓝色未读圆点，点击查看后转中性绿勾）：Turn 完成且有未查看产出。
-     - `Error`（红色警示点）：进程异常退出、触发额度上限 `429` 或初始化脚本失败，点击直接展示可操作恢复建议（重试 / 切终端排障）。
+     - `Error`（红色警示点）：进程异常退出、触发额度上限 `429` 或初始化脚本失败，点击直接展示可操作恢复建议（重试 / 换一个 provider 新开会话 / `⌘⇧T` 到系统终端排障）。
      - `Idle`（浅灰空心圆）：安静待命。
    - **上下文右键菜单**：在 Cursor/Zed/VS Code 打开、在 Finder 中显示、复制 Worktree 路径、同步 Base 分支、归档并清理 Worktree。
 
@@ -238,6 +235,13 @@ Shepherd 采用 **“默认极简双栏 + 按需展开右侧 Diff Inspector + �
    - **内联权限审批条（Inline Approval Bar）**：
      - 显眼琥珀边框 + 操作语义分类标签（如 `Shell Command`、`Write Outside Worktree`、`Git Push`）。
      - 提供 `Allow Once (⌘↩)`、`Allow for Session`（同类低风险操作本会话免扰）、`Deny (⌘⌫)` 三个动作；点 `Deny` 或展开输入框可附带一句纠正指令（如“改跑单测不要跑全量集成测试”），代理收到拒绝理由后直接调整策略而非盲目中止。
+   - **问题作答卡与表单填写卡（v2 新增）**：
+     - 不是所有「等你」的请求都是审批。Agent 提问（如「选哪种迁移策略」）时显示问答卡，用户选择选项或输入文字后回传答案。
+     - MCP 工具要求结构化输入时显示表单卡，按请求给出的字段渲染。
+     - 这两类与权限确认一起进入同一个待处理列表和 `⌘⇧A` 跳转序列，但各自保留原始语义，不能压成「允许 / 拒绝」（[`docs/02-architecture.md`](./02-architecture.md) §3.1.1）。
+   - **如实标注审批覆盖范围（v2 新增）**：审批条只会出现在 Agent 实际发来请求的操作上，用户在 Agent 自己的配置里放行过的操作不会经过 Shepherd。权限档位的说明文字要写明这一点，界面只提供经过验证能够兑现的档位（[`docs/02-architecture.md`](./02-architecture.md) §3.3.4）。
+   - **Claude 的权限档位（v3 定稿）**：沿用我的 Claude 设置（默认）、询问、自动接受编辑、计划模式、完全放行，与 Claude 的原生权限模式一一对应；「完全放行」每个会话单独确认；首版不提供「每次询问」（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4）。
+   - **会话头部（v3 新增）**：始终显示当前 provider、登录方式与计费来源、实际生效的权限模式；本机 CLI 版本超出已测试范围时在这里提示。用户不必打开终端就能知道这个会话用的是哪个账号、按什么规则放行。
    - **文件变更摘要卡（Turn Summary Card）**：每轮对话结束汇总本轮触碰文件数、总增删行、耗时、Token/用量估算（视后端可用字段），附带 `Review Diff` 与 `Open in IDE` 快捷按钮。
    - **消息队列（Follow-up Queue）**：当代理仍在运行时，用户依然可以在底部输入框输入并提交下一条补充要求，自动进入待发送队列并可随时编辑或取消。
 
@@ -259,13 +263,15 @@ flowchart LR
 #### 旅程 1：创建 Worktree 并派发任务（目标：15 秒内发出第一条指令）
 1. 用户按下 `⌘N`（或点击左侧 `+ New Worktree`），弹出居中轻量化创建面板（Spotlight 风格）。
 2. 选择目标 Repository（默认上次使用仓库）与 Base Branch（默认 `main`）。
-3. 选择 Agent（默认记住上次偏好：Claude Code / Codex / ACP）及模型预设。
+3. 选择 provider（默认记住上次偏好：Claude Code / Codex / 已添加的外部 provider）、模型预设与权限档位。
 4. 直接输入任务 Prompt；Shepherd 自动异步生成短小规范的分支名（如 `feat/oauth-pkce`，支持随时手改）。
 5. 回车确认 → 立即切换至新建会话页面并后台执行 `git worktree add`：
-   - **共享目录安全软链**：合并 Repo 级本地设置 `symlinkPaths` 与 `shepherd.yaml` / `orca.yaml` 中的 `worktree.sharedDirectories`。对 YAML 声明的 `sharedDirectories` 强制执行 `git check-ignore` 校验——**仅放行已存在且被 `.gitignore` 忽略的目录**（如 `node_modules`、`.venv`）；若命中受 Git 追踪的路径则安全跳过并在顶部提示条展示可审计警告，绝不破坏受控文件。
-   - **初始化脚本 SHA-256 信任门控弹窗（Trust Gate Sheet）**：若仓库配置包含 `scripts.setup`，执行前对规范化脚本文本计算 **SHA-256 内容哈希**并与本地已信任哈希集合（按仓库与脚本类型保留多版本历史已信任记录，避免多分支来回切换时反复弹窗）比对：
+   - **共享目录安全软链**：合并 Repo 级本地设置 `symlinkPaths` 与 `shepherd.yaml` / `orca.yaml` 中的 `worktree.sharedDirectories`。对 YAML 声明的 `sharedDirectories` 强制执行 `git check-ignore` 校验——**仅放行已存在且被 `.gitignore` 忽略的目录**（适合共享的是与分支无关的大型缓存；各分支依赖不同的 `node_modules` 不适合共享，见 [`docs/02-architecture.md`](./02-architecture.md) §3.2.2）；软链建好后把对应路径写入 `.git/info/exclude`，避免软链本身出现在 `git status` 里；若命中受 Git 追踪的路径则安全跳过并在顶部提示条展示可审计警告，绝不破坏受控文件。
+   - **仓库信任门（v3 新增）**：仓库第一次加入 Shepherd 时确认一次。弹窗说明该仓库的项目级 Agent 配置（hooks、MCP 配置）会在会话启动时直接生效，Agent 自己不会再问。确认按仓库记录，对它的所有 Worktree 生效，不写入 Agent 的配置文件。它与下面的脚本信任共用一个 Sheet、分开记录（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4）。
+   - **初始化脚本 SHA-256 信任门控弹窗（Trust Gate Sheet）**：若仓库配置包含 `scripts.setup`，执行前对规范化命令文本计算 **SHA-256 哈希**并与本地已信任哈希集合（按仓库与脚本类型保留多版本历史已信任记录，避免多分支来回切换时反复弹窗）比对：
      - *哈希已信任*：静默执行，按 `setupAgentStartupPolicy`（`start-immediately` 或 `wait-for-setup`）决定 Agent 启动时机，零弹窗阻塞；
-     - *首次遇到或脚本内容被修改（防范克隆陌生仓库 / 恶意 PR 注入命令）*：暂停脚本执行并弹出 macOS 原生 Sheet 信任确认框——展示配置文件路径（`shepherd.yaml` / `orca.yaml`）、完整脚本文本与 SHA-256 指纹摘要（变更时标明“脚本已与上次信任版本不同”），提供 **`信任此哈希并运行`**、**`跳过脚本继续创建`**、**`取消`** 三个明确按钮。
+     - *首次遇到或命令文本被修改*：暂停脚本执行并弹出 macOS 原生 Sheet 信任确认框——展示配置文件路径（`shepherd.yaml` / `orca.yaml`）、完整脚本文本与 SHA-256 指纹摘要（变更时标明“脚本已与上次信任版本不同”），提供 **`信任此仓库执行此入口`**、**`跳过脚本继续创建`**、**`取消`** 三个明确按钮。
+     - *v2 边界说明*：弹窗展示并哈希的是 YAML 里的命令文本。命令调用的仓库内脚本或包管理器钩子内容变化时不会重新弹窗。弹窗文案要直说这一点，不把它描述成对恶意分支的防护（[`docs/02-architecture.md`](./02-architecture.md) §3.2.3）。
    - 初始化就绪后自动投递首轮 Prompt 开始流式执行。
 
 #### 旅程 2：多任务并发监控与权限审批
@@ -291,7 +297,7 @@ flowchart LR
 3. 确认后自动执行 `git commit` → `git push -u origin <branch>` → `gh pr create`，成功后在对话流插入可点击的 PR 卡片，侧边栏同步展示 `PR #84`。
 4. PR 合并后（或决定放弃该探索分支时），用户在侧边栏点击「Archive & Clean Worktree」：
    - Shepherd 自动检查是否存在未提交/未推送改动或未跟踪风险文件（有脏文件则强提醒并列出文件清单，防误删）；
-   - 若配置了 `scripts.archive`，同样执行 **SHA-256 内容哈希信任校验**（未信任则弹 Sheet 确认），且若归档脚本返回非零退出码则自动阻断删除并提示原因；
+   - 若配置了 `scripts.archive`，同样执行入口信任校验（命令文本的 SHA-256 哈希未被信任则弹 Sheet 确认），且若归档脚本返回非零退出码则自动阻断删除并提示原因；
    - 确认后安全执行 `git worktree remove`、可选删除本地已合并分支，并在后台优雅终止该 Worktree 关联的残余进程；
    - 历史对话与元数据转入归档区只读保留，保持活跃列表永远干净清爽。
 
@@ -320,19 +326,18 @@ flowchart LR
 | `⌘⇧D` | 当前会话 | 展开 / 收起右侧 Diff Inspector | `MVP` |
 | `⌘O` | 当前会话 | 在默认外部 IDE（Cursor / Zed / VS Code）中打开当前 Worktree | `MVP` |
 | `⌘⇧O` | 当前会话 | 弹出外部工具选择器（切换打开方式 / Finder / Xcode） | `MVP` |
-| `⌘J` | 当前会话 | 展开 / 折叠底部极简终端抽屉（MVP 阶段先提示/映射到外部终端跳转，P1 锁定 M3 启用内嵌抽屉） | `P1`（M3） |
 | `⌘⇧T` | 当前会话 | 在系统默认终端（Ghostty / iTerm2 / Terminal）中打开当前 Worktree | `MVP` |
 | `⌘↩` | 审批条 / 输入框 | 有聚焦审批条时批准当前操作（`Allow Once`）；在输入框时发送消息 | `MVP` |
 | `⌘⌫` | 审批条 | 拒绝当前待审批操作（`Deny`） | `MVP` |
 | `⌘.` | 当前会话 | 优雅中断当前正在生成的 Agent Turn | `MVP` |
 | `⌘⇧P` | 当前会话 | 发起 Commit & Create PR 流程 | `MVP` |
 | `⌘\` | 窗口 | 折叠 / 展开左侧 Repo & Worktree 侧边栏（专注模式） | `MVP` |
-| `⌘,` | 应用内 | 打开 macOS 原生多标签设置窗口（General / Agents / External Apps / Shortcuts） | `MVP` |
+| `⌘,` | 应用内 | 打开 macOS 原生多标签设置窗口（General / Providers / External Apps / Shortcuts；P1 加 Devices，管理绑定的手机和平板） | `MVP` |
 
 4. **视觉质感、明暗主题与窗口记忆**
-   - **外观与材质**：完整适配 macOS Light / Dark / System 自动切换；左侧栏采用系统原生 Vibrancy 半透明材质（`NSVisualEffectView`）；全面使用原生 SF Symbols 与系统动态字体（正文 SF Pro、代码与 Diff 采用 SF Mono 或用户自选等宽字体，支持 `⌘+` / `⌘-` 独立缩放字号）。
-   - **无障碍与动效**：遵循 macOS `Reduce Motion` 与 `Increase Contrast` 设置，动画克制干脆（抽屉与面板切换 ≤ 180ms）。
-   - **状态记忆与安全退出**：精确持久化窗口尺寸、位置、侧边栏/Diff 栏宽度、上次打开的 Worktree、各仓库偏好的 Agent 与默认外部 IDE。当用户按 `⌘Q` 退出时，若仍有运行中的 Agent 子进程，弹出原生确认提示（“仍有 N 个代理任务运行中，退出将安全终止它们”），确认后由进程管理器统一回收进程组，绝不留孤儿进程。
+   - **外观与材质**：完整适配 macOS Light / Dark / System 自动切换；侧栏、工具栏、输入框与弹层使用系统的 Liquid Glass 材质（v5：最低系统升到 macOS 27，不再需要毛玻璃回退）；全面使用原生 SF Symbols 与系统动态字体（正文 SF Pro、代码与 Diff 采用 SF Mono 或用户自选等宽字体，支持 `⌘+` / `⌘-` 独立缩放字号）。
+   - **无障碍与动效**：遵循 macOS `Reduce Motion` 与 `Increase Contrast` 设置，动画克制干脆（面板切换 ≤ 180ms）。
+   - **状态记忆与安全退出**：精确持久化窗口尺寸、位置、侧边栏/Diff 栏宽度、上次打开的 Worktree、各仓库偏好的 Agent 与默认外部 IDE。当用户按 `⌘Q` 退出时，若仍有运行中的 Agent 子进程，弹出原生确认提示（“仍有 N 个代理任务运行中，退出将安全终止它们”），确认后由进程管理器经各 Agent 的看守进程回收其进程组、会话与带进程树标记的后代（覆盖范围见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3）。
 
 ---
 
@@ -340,7 +345,9 @@ flowchart LR
 
 为保证 Shepherd 真正兑现“比 Electron 轻量一个数量级、具备原生 macOS 丝滑手感”的产品承诺，制定以下可量化验收门槛。
 
-> **路线锁定与口径说明**：基于 [`docs/01-orca-audit.md`](./01-orca-audit.md) 的上游源码实证（`orcad` 虽已 0 Electron 耦合，但锁定 Node v24.22.3 单二进制即 122.59 MB + 11 MB JS bundle + 25 子进程 + 1,202 深度捆绑 RPC + 闭源 Claude Agent SDK 商业条款风险），Shepherd **已最终锁定纯 Swift 6 原生内核路线（仅 Apple Silicon `arm64` · macOS 15.0+ · MIT 开源）**（详见 [`docs/02-architecture.md`](./02-architecture.md)）。下表直接以纯 Swift 6 原生交付标准作为唯一正式验收门禁。
+> **路线锁定与口径说明**：基于 [`docs/01-orca-audit.md`](./01-orca-audit.md) 的上游源码实证（`orcad` 虽已 0 Electron 耦合，但锁定 Node v24.22.3 单二进制即 122.59 MB + 11 MB JS bundle + 25 子进程 + 1,202 深度捆绑 RPC + 闭源 Claude Agent SDK 商业条款风险），Shepherd **已最终锁定纯 Swift 6 原生内核路线（仅 Apple Silicon `arm64` · macOS 27.0+ · MIT 开源）**（详见 [`docs/02-architecture.md`](./02-architecture.md)）。下表直接以纯 Swift 6 原生交付标准作为唯一正式验收门禁。
+>
+> **v2 口径补充**：下表「目标」列是设计目标，尚未实测；「对比参考」列是估算，不是测量值。M0 起逐项用实测替换。
 
 ### 5.1 性能与资源占用指标
 
@@ -350,8 +357,9 @@ flowchart LR
 | **热唤醒响应** | 菜单栏或通知点击拉起后台常驻窗口并聚焦目标会话 | **≤ 80 ms** | ~150 – 300 ms | 实机 Instruments / 日志打点 P95 |
 | **空闲常驻内存** | 启动后无活跃代理（展示 5 个历史 Worktree） | **≤ 80 MB**（目标 45–75 MB） | 250 – 500 MB+（仅 `orcad` 多进程） | macOS Activity Monitor 物理占用（Phys Footprint） |
 | **高并发常驻内存** | 同时运行 5 个活跃 Worktree（含长对话流与打开 Diff）*不含用户本机 Claude/Codex CLI 自身进程* | **≤ 220 MB** | 600 MB – 1.5 GB+ | 模拟 5 路高吞吐流式输出持续 15 分钟观测，且关闭会话后内存可回落无持续泄漏 |
+| **整组进程占用（v2 新增 · 观测项）** | 同一场景下 Shepherd 加上它拉起的全部 Agent CLI 及其子进程的合计占用 | 不设门禁，随版本记录 | — | 同一次压测中一并采集。用户感受到的是整组占用，Shepherd 自身的 220 MB 只是其中一部分 |
 | **空闲 CPU 占用** | 无活跃代理、窗口在后台 | **< 0.5%** | 1% – 3% | Instruments Time Profiler 连续采样 5 分钟 |
-| **安装包体积** | 签名公证后的 `.dmg` 分发体积 | **≤ 25 MB**（目标 12–22 MB） | > 150 MB（仅单架构 Node 24 即 122.6 MB） | Release 构建产物实测 |
+| **安装包体积** | 签名公证后的 `.dmg` 分发体积 | **≤ 25 MB**（目标 12–22 MB） | > 150 MB（未压缩口径；仅单架构 Node 24 二进制即 122.6 MB，其压缩后发行包约 26–51 MB） | Release 构建产物实测 |
 
 ### 5.2 并发交互与实时性指标
 
@@ -367,9 +375,13 @@ flowchart LR
 ### 5.3 产品体验与可靠性验收清单（MVP Definition of Done）
 
 - [ ] **双代理一等闭环**：在同一仓库中同时开启至少 1 个 Claude Code Worktree 与 1 个 Codex Worktree 并行执行任务，互不干扰、无文件冲突、审批互不串台。
-- [ ] **配置兼容与安全门控验证**：对已有 `orca.yaml`（含 `worktree.sharedDirectories` 与 `scripts.setup`/`scripts.archive`）的仓库，Shepherd 无需改造即可兼容运行；存在 `shepherd.yaml` 时优先读取 `shepherd.yaml`；`git check-ignore` 能准确拦截未忽略目录防止误软链；首次运行或脚本内容变化时 100% 触发 SHA-256 信任门控弹窗，切回历史已信任哈希分支不重复弹窗。
-- [ ] **零污染与零闭源 SDK 合规审计**：在默认设置下完整运行一轮新建 Worktree → 对话 → 审批 → Diff → 清理全流程，确认对 `~/.claude`、`~/.codex` 与目标 Git 仓库零未声明 Skill/配置写入；同时扫描构建产物确认 **0 处闭源 `@anthropic-ai/claude-agent-sdk`**、**0 处 `ORCA_*` / `CLAUDE_CODE_ENTRYPOINT=orca` / `orca_desktop` 品牌标识残留**。
-- [ ] **权限安全门控**：高危 Shell 命令或越界写操作 100% 暂停并弹出内联审批条；用户可 `Allow Once`、`Allow Session` 或 `Deny` 并附带文字纠正，拒绝后命令确实未被执行。
+- [ ] **配置兼容与安全门控验证**：对已有 `orca.yaml`（含 `worktree.sharedDirectories` 与 `scripts.setup`/`scripts.archive`）的仓库，Shepherd 无需改造即可兼容运行；存在 `shepherd.yaml` 时优先读取 `shepherd.yaml`；`git check-ignore` 能准确拦截未忽略目录防止误软链；首次运行或命令文本变化时 100% 触发信任门控弹窗，切回历史已信任哈希分支不重复弹窗；弹窗文案如实说明不覆盖被调用脚本文件的内容变化；软链建立后 `git status` 不出现软链本身。
+- [ ] **零污染与零闭源 SDK 合规审计**：在默认设置下完整运行一轮新建 Worktree → 对话 → 审批 → Diff → 清理全流程，确认对 `~/.claude`、`~/.codex` 与目标 Git 仓库零未声明 Skill/配置写入（已声明的写入包括 `.git/info/exclude`、Agent CLI 自己写的会话文件，以及向 Agent 环境加入的一个进程树标记变量）；同时扫描构建产物确认 **0 处闭源 `@anthropic-ai/claude-agent-sdk`**、**0 处 `ORCA_*` / `CLAUDE_CODE_ENTRYPOINT=orca` / `orca_desktop` 品牌标识残留**。
+- [ ] **权限安全门控（v2 改写）**：凡是 Agent 发给 Shepherd 的权限请求，100% 暂停并弹出内联审批条；用户可 `Allow Once`、`Allow Session` 或 `Deny` 并附带文字纠正，拒绝后命令确实未被执行。界面提供的每个权限档位都经过逐驱动验证能够兑现，并写明哪些操作不经过 Shepherd。原「高危命令 100% 暂停」的说法撤回，因为 Shepherd 看不到 Agent 按自身配置直接放行的操作。
+- [ ] **三类交互闭环（v2 新增）**：权限确认、问题作答、表单填写各自至少跑通一次真实请求，答案与表单内容能正确回传给 Agent。
 - [ ] **外部 IDE 与 PR 闭环**：一键 `⌘O` 成功在 Cursor / Zed / VS Code 中打开对应 Worktree 目录，手改保存后 Diff 实时同步，最终可一键完成 Commit + GitHub PR 创建并安全清理 Worktree（含脏工作区防误删保护与 `scripts.archive` 失败阻断）。
-- [ ] **进程零残留**：正常退出（`⌘Q`）或模拟 App 崩溃（`kill -9`）后，验证系统进程表中无残留失控的 Agent 子进程或孤儿句柄。
+- [ ] **进程清理（v4 改写）**：正常退出（`⌘Q`）或模拟 App 崩溃（`kill -9`）后，分四个场景验证：Agent 所在进程组与会话全部清空；真实 Agent 启动的长时间命令（自成进程组）被清理；被 launchd 收养、但带有进程树标记的后代被清理；经外部 provider 启动的 Agent 及其工具进程被清理。主动清空环境并脱离会话的后代不在覆盖范围内，验收报告需列出未覆盖的情形。
+- [ ] **仓库信任门（v3 新增）**：仓库第一次加入时弹出确认，确认前不能在该仓库里启动 Agent 会话；确认后它的所有 Worktree 不再重复弹窗；Shepherd 不为此写入 `~/.claude.json`。
+- [ ] **Claude 备用路径（v3 新增）**：`claude-direct` 不可用时，用户改用 `claude-acp` 新开会话可以完成同一任务；界面按能力声明隐藏该 provider 做不到的功能。
+- [ ] **会话头部如实显示（v3 新增）**：登录方式与实际生效的权限模式同 Claude 自己报告的一致；环境里有 `ANTHROPIC_API_KEY` 时有一次提示。
 - [ ] **全键盘可用**：不依赖鼠标，仅凭键盘快捷键（`⌘N` → 输入 → `⌘⇧A` → `⌘↩` → `⌘⇧D` → `⌘O` → `⌘⇧P`）即可走通完整核心工作流。

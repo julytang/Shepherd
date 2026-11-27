@@ -1,0 +1,20 @@
+// 两个 App 项目共用的构建设置。Bundle ID、版本号、系统版本只在这里改。
+
+// Bundle ID：Mac 与 iOS 共用同一个；Debug 构建加 .dev，方便与正式版并存。
+SHEPHERD_BUNDLE_ID_BASE = top.inorbit.shepherd
+SHEPHERD_BUNDLE_ID_SUFFIX =
+SHEPHERD_BUNDLE_ID_SUFFIX[config=Debug] = .dev
+SHEPHERD_APP_BUNDLE_ID = $(SHEPHERD_BUNDLE_ID_BASE)$(SHEPHERD_BUNDLE_ID_SUFFIX)
+
+// 版本号
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+// 最低系统版本
+MACOSX_DEPLOYMENT_TARGET = 27.0
+IPHONEOS_DEPLOYMENT_TARGET = 27.0
+
+SWIFT_VERSION = 6.0
+
+// 签名团队等本机设置放在 Local.xcconfig（不进仓库）。文件不存在时忽略。
+#include? "Local.xcconfig"
