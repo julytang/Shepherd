@@ -52,7 +52,7 @@ Shepherd 汲取开源 [`stablyai/orca`](https://github.com/stablyai/orca) 的多
 
 ## 当前状态与明确非目标（Non-Goals）
 
-- **当前状态**：`Phase 0 · 方案计划书修订版 v3（2026-11-26）`（**MIT License** / **仅 Apple Silicon `arm64`** / 不内嵌终端 / 开发期占位 Bundle ID，首次公测前定稿）。路线 C1 保留；**Claude Code 接入方案已对齐，Agent 接入改为 provider 分层**，下一步是 **M0 验证 Spike**。仓库目前只有文档，尚无代码；修订记录见 [`docs/PROPOSAL.md`](./docs/PROPOSAL.md) §8。
+- **当前状态**：`Phase 0 · 方案计划书修订版 v4（2026-11-27）`（**MIT License** / **仅 Apple Silicon `arm64`** / 不内嵌终端 / 开发期占位 Bundle ID，首次公测前定稿）。路线 C1 保留；**Claude Code 接入方案已对齐，Agent 接入改为 provider 分层**，下一步是 **M0 验证 Spike**。仓库目前只有文档，尚无代码；修订记录见 [`docs/PROPOSAL.md`](./docs/PROPOSAL.md) §8。
 - **明确非目标（Out-of-Scope / Defer）**：
   - **不包含模型路由与额度容灾网关（如 Magpie 类能力）**：本期专注本地多 Agent 编排体验本身，仅在底层预留干净的子进程环境变量注入边界，留待后续阶段按需对接。
   - **不做**：Intel Mac 兼容、内嵌 Chromium 浏览器与 Design Mode、内置 Monaco 代码编辑器、Mobile Companion / E2E Relay、远程 SSH / Docker 节点、Linear / Jira / GitHub 项目看板、复杂 DAG 可视化编排器、定时自动化任务、内嵌终端、以及 Mac App Store 沙箱分发。

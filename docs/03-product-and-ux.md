@@ -3,7 +3,7 @@
 > **文档归属**：Shepherd 方案计划书 · 第三部分（产品与 UX 规划）  
 > **关联文档**：上游代码审计见 [`docs/01-orca-audit.md`](./01-orca-audit.md)；系统架构与技术路线见 [`docs/02-architecture.md`](./02-architecture.md)；工程落地与里程碑见 [`docs/04-roadmap-and-engineering.md`](./04-roadmap-and-engineering.md)  
 > **范围说明**：本文档定义 Shepherd 的产品定位、相对 `stablyai/orca` 的功能裁剪边界、两项关键产品决策专题、macOS 原生信息架构与交互规范，以及可量化的验收标准。多模型本地路由与额度容灾网关能力**不在本期范围**，仅列为远期演进扩展点。  
-> **修订状态**：修订版 v3（2026-11-26）。v2：更新了竞品信息与差异化表述，修正了审批与信任门控的承诺范围，性能指标统一标注为未实测目标。v3：对话只保留 Native Chat，终端抽屉移出规划（3.1 专题 A）；Claude 的权限档位、仓库信任门与备用路径按 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4 定稿；Agent 接入按 provider 组织（§3.1.5）。
+> **修订状态**：修订版 v3（2026-11-26）。v2：更新了竞品信息与差异化表述，修正了审批与信任门控的承诺范围，性能指标统一标注为未实测目标。v3：对话只保留 Native Chat，终端抽屉移出规划（3.1 专题 A）；Claude 的权限档位、仓库信任门与备用路径按 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4 定稿；Agent 接入按 provider 组织（§3.1.5）。v4（2026-11-27）：进程清理改为每个 Agent 一个看守进程加进程树标记（[`docs/02-architecture.md`](./02-architecture.md) §3.3.3），相应更新了验收清单与环境变量表述。
 
 ---
 
@@ -103,7 +103,7 @@
 | **Claude 订阅额度消耗与用量政策**：非交互路径可能比交互式 TUI 更费额度；Anthropic 曾宣布把 `claude -p` 用量移出订阅额度，2026 年 6 月暂停，未给恢复时间（[`docs/01-orca-audit.md`](./01-orca-audit.md) §7.5） | 接受该风险。会话头部显示登录与计费来源；M0 实测真实消耗，替换掉原稿无出处的「1.8×–3×+」；政策恢复时的出路在产品之外：改用 API Key，或经外部网关换模型与账号 | 产品内没有对冲手段。政策恢复后，订阅登录的 Claude 会话会按新规则计费 |
 | **TUI 专属斜杠命令**：`/btw`、`/recap`、`/usage`、`/login`、`/doctor` 等在 `stream-json` 模式下无法直通 | 只支持无头模式下可用的部分，清单由 M0 列出；高频操作（压缩上下文、切换模型、中断、重试）做成 Native Chat 的原生按钮与 `/` 补全；用量从结果帧与限流事件读取 | `/btw` 这类 TUI 专属交互在 Shepherd 里没有 |
 | **需要真实终端的交互式命令**：首次登录、`git rebase -i`、带 2FA 的脚本、本地 Dev Server、REPL | `⌘⇧T` 在用户的默认终端里打开当前 Worktree；登录由用户事先在自己的终端里完成，Shepherd 检测到未登录时给出提示 | 这些操作发生在 Shepherd 之外，侧栏看不到它们的状态 |
-| **启动参数、自定义 Wrapper 与多账号切换** | 会话环境与用户终端一致，不清理 `CLAUDE_CONFIG_DIR` 等变量；设置页可指定二进制路径；账号管理不在范围内 | 想临时换账号或试验 CLI 参数，需要到系统终端里做 |
+| **启动参数、自定义 Wrapper 与多账号切换** | 会话环境与用户终端一致（v4：只多一个用于进程清理的标记变量），不清理 `CLAUDE_CONFIG_DIR` 等变量；设置页可指定二进制路径；账号管理不在范围内 | 想临时换账号或试验 CLI 参数，需要到系统终端里做 |
 
 #### 这个决定换来什么
 
@@ -337,7 +337,7 @@ flowchart LR
 4. **视觉质感、明暗主题与窗口记忆**
    - **外观与材质**：完整适配 macOS Light / Dark / System 自动切换；左侧栏采用系统原生 Vibrancy 半透明材质（`NSVisualEffectView`）；全面使用原生 SF Symbols 与系统动态字体（正文 SF Pro、代码与 Diff 采用 SF Mono 或用户自选等宽字体，支持 `⌘+` / `⌘-` 独立缩放字号）。
    - **无障碍与动效**：遵循 macOS `Reduce Motion` 与 `Increase Contrast` 设置，动画克制干脆（面板切换 ≤ 180ms）。
-   - **状态记忆与安全退出**：精确持久化窗口尺寸、位置、侧边栏/Diff 栏宽度、上次打开的 Worktree、各仓库偏好的 Agent 与默认外部 IDE。当用户按 `⌘Q` 退出时，若仍有运行中的 Agent 子进程，弹出原生确认提示（“仍有 N 个代理任务运行中，退出将安全终止它们”），确认后由进程管理器统一回收已登记的进程组与跟踪到的后代进程（覆盖范围见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3）。
+   - **状态记忆与安全退出**：精确持久化窗口尺寸、位置、侧边栏/Diff 栏宽度、上次打开的 Worktree、各仓库偏好的 Agent 与默认外部 IDE。当用户按 `⌘Q` 退出时，若仍有运行中的 Agent 子进程，弹出原生确认提示（“仍有 N 个代理任务运行中，退出将安全终止它们”），确认后由进程管理器经各 Agent 的看守进程回收其进程组、会话与带进程树标记的后代（覆盖范围见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3）。
 
 ---
 
@@ -376,11 +376,11 @@ flowchart LR
 
 - [ ] **双代理一等闭环**：在同一仓库中同时开启至少 1 个 Claude Code Worktree 与 1 个 Codex Worktree 并行执行任务，互不干扰、无文件冲突、审批互不串台。
 - [ ] **配置兼容与安全门控验证**：对已有 `orca.yaml`（含 `worktree.sharedDirectories` 与 `scripts.setup`/`scripts.archive`）的仓库，Shepherd 无需改造即可兼容运行；存在 `shepherd.yaml` 时优先读取 `shepherd.yaml`；`git check-ignore` 能准确拦截未忽略目录防止误软链；首次运行或命令文本变化时 100% 触发信任门控弹窗，切回历史已信任哈希分支不重复弹窗；弹窗文案如实说明不覆盖被调用脚本文件的内容变化；软链建立后 `git status` 不出现软链本身。
-- [ ] **零污染与零闭源 SDK 合规审计**：在默认设置下完整运行一轮新建 Worktree → 对话 → 审批 → Diff → 清理全流程，确认对 `~/.claude`、`~/.codex` 与目标 Git 仓库零未声明 Skill/配置写入（已声明的写入包括 `.git/info/exclude`，以及 Agent CLI 自己写的会话文件）；同时扫描构建产物确认 **0 处闭源 `@anthropic-ai/claude-agent-sdk`**、**0 处 `ORCA_*` / `CLAUDE_CODE_ENTRYPOINT=orca` / `orca_desktop` 品牌标识残留**。
+- [ ] **零污染与零闭源 SDK 合规审计**：在默认设置下完整运行一轮新建 Worktree → 对话 → 审批 → Diff → 清理全流程，确认对 `~/.claude`、`~/.codex` 与目标 Git 仓库零未声明 Skill/配置写入（已声明的写入包括 `.git/info/exclude`、Agent CLI 自己写的会话文件，以及向 Agent 环境加入的一个进程树标记变量）；同时扫描构建产物确认 **0 处闭源 `@anthropic-ai/claude-agent-sdk`**、**0 处 `ORCA_*` / `CLAUDE_CODE_ENTRYPOINT=orca` / `orca_desktop` 品牌标识残留**。
 - [ ] **权限安全门控（v2 改写）**：凡是 Agent 发给 Shepherd 的权限请求，100% 暂停并弹出内联审批条；用户可 `Allow Once`、`Allow Session` 或 `Deny` 并附带文字纠正，拒绝后命令确实未被执行。界面提供的每个权限档位都经过逐驱动验证能够兑现，并写明哪些操作不经过 Shepherd。原「高危命令 100% 暂停」的说法撤回，因为 Shepherd 看不到 Agent 按自身配置直接放行的操作。
 - [ ] **三类交互闭环（v2 新增）**：权限确认、问题作答、表单填写各自至少跑通一次真实请求，答案与表单内容能正确回传给 Agent。
 - [ ] **外部 IDE 与 PR 闭环**：一键 `⌘O` 成功在 Cursor / Zed / VS Code 中打开对应 Worktree 目录，手改保存后 Diff 实时同步，最终可一键完成 Commit + GitHub PR 创建并安全清理 Worktree（含脏工作区防误删保护与 `scripts.archive` 失败阻断）。
-- [ ] **进程清理（v2 改写）**：正常退出（`⌘Q`）或模拟 App 崩溃（`kill -9`）后，分三个场景验证：已登记的进程组全部清空；真实 Agent 启动的长时间命令（自成进程组）被清理；经外部 provider 启动的 Agent 及其工具进程被清理（v3 替换原终端作业场景）。后代跟踪存在采样间隙，验收报告需列出未覆盖的情形。
+- [ ] **进程清理（v4 改写）**：正常退出（`⌘Q`）或模拟 App 崩溃（`kill -9`）后，分四个场景验证：Agent 所在进程组与会话全部清空；真实 Agent 启动的长时间命令（自成进程组）被清理；被 launchd 收养、但带有进程树标记的后代被清理；经外部 provider 启动的 Agent 及其工具进程被清理。主动清空环境并脱离会话的后代不在覆盖范围内，验收报告需列出未覆盖的情形。
 - [ ] **仓库信任门（v3 新增）**：仓库第一次加入时弹出确认，确认前不能在该仓库里启动 Agent 会话；确认后它的所有 Worktree 不再重复弹窗；Shepherd 不为此写入 `~/.claude.json`。
 - [ ] **Claude 备用路径（v3 新增）**：`claude-direct` 不可用时，用户改用 `claude-acp` 新开会话可以完成同一任务；界面按能力声明隐藏该 provider 做不到的功能。
 - [ ] **会话头部如实显示（v3 新增）**：登录方式与实际生效的权限模式同 Claude 自己报告的一致；环境里有 `ANTHROPIC_API_KEY` 时有一次提示。

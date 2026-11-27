@@ -4,7 +4,7 @@
 > **关联文档**：上游代码审计 [`docs/01-orca-audit.md`](./01-orca-audit.md) · 系统架构 [`docs/02-architecture.md`](./02-architecture.md) · 产品与 UX 规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md)  
 > **已锁定基线**：**MIT License** · **macOS 15.0+ / 仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · **100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱**（零 Electron、零 Node 24 Sidecar、零闭源商业 SDK）。  
 > **范围说明**：本路线图覆盖 **M0–M4** 完整工程交付；多模型本地路由与额度容灾网关（如 Magpie 类能力）**显式排除在 M0–M4 规划之外**，仅在文末远期演进中说明扩展边界。  
-> **修订状态**：修订版 v3（2026-11-26）。v2：M0 增加验证项，风险登记册新增 R10–R14。v3：Claude Code 接入已对齐（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划，全部排期内容移除，风险登记册新增 R15–R16。本轮只修订文档，仓库中尚无代码，下面的目录结构是规划。
+> **修订状态**：修订版 v3（2026-11-26）。v2：M0 增加验证项，风险登记册新增 R10–R14。v3：Claude Code 接入已对齐（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划，全部排期内容移除，风险登记册新增 R15–R16。v4（2026-11-27）：`ShepherdReaper` 改为每个 Agent 一层的启动器与看守进程，加进程树标记（`02` §3.3.3），相应更新目录注释、M0 任务与验收、L4 测试。本轮只修订文档，仓库中尚无代码，下面的目录结构是规划。
 
 ---
 
@@ -36,10 +36,10 @@ Shepherd/
 │       └── Info.plist                       # CFBundleIdentifier (M0-M1 占位 io.github.julytang.shepherd，公测前定稿)、Sparkle 2、LSMinimumSystemVersion=15.0
 │
 ├── Helpers/
-│   └── ShepherdReaper/                      # 【Reaper】独立编译的极简孤儿进程回收助手（打入 Contents/Helpers/）
+│   └── ShepherdReaper/                      # 【Reaper】每个 Agent 一层的启动器与看守进程（打入 Contents/Helpers/）
 │       ├── Package.swift                    # 纯 Darwin/C-Swift 可执行目标（零三方依赖，产物体积 < 200 KB）
 │       └── Sources/
-│           └── main.swift                   # kqueue(EVFILT_PROC+NOTE_EXIT) 监听主 App PID + 匿名 Pipe 登记 PGID 清场
+│           └── main.swift                   # 新建会话 + 派生看守进程 + exec 目标 CLI；管道 EOF 视为主 App 已死；按进程树标记清场
 │
 ├── Packages/
 │   ├── ShepherdCore/                        # 【Core】领域模型、状态机编排、审批门控与环境管道（纯 Swift 6）
@@ -47,7 +47,7 @@ Shepherd/
 │   │   │   ├── Models/                      # Repository, Worktree, AgentSession, Turn, TranscriptItem, ApprovalPayload
 │   │   │   ├── Coordinator/                 # SessionCoordinator (Actor), DeltaCoalescer (33ms 节流), WorkspaceCoordinator
 │   │   │   ├── Security/                    # ApprovalGatekeeper (档位映射 Agent 原生权限模式), ScriptTrustGate (入口信任, SHA-256)
-│   │   │   ├── Process/                     # ProcessSupervisor (POSIX_SPAWN_SETPGROUP), DescendantTracker (后代快照), ReaperClient, LoginShellEnvProbe
+│   │   │   ├── Process/                     # ProcessSupervisor (POSIX_SPAWN_SETPGROUP), DescendantTracker (后代快照，仅用于展示与诊断), ReaperClient (经 shepherd-reaper 启动并下发停止指令), LoginShellEnvProbe
 │   │   │   ├── Environment/                 # ProcessEnvironmentProvider（分层合成 + 敏感值脱敏日志）
 │   │   │   ├── Providers/                   # ProviderRegistry（按清单注册 provider，校验契约版本范围；不引用具体 provider）
 │   │   │   └── Diagnostics/                 # ProtocolRingBuffer (最近 500 帧抓包), OSLog 分类 Logger
@@ -110,7 +110,7 @@ Shepherd/
 │   ├── FakeAgentHarness/                    # 模拟 codex / claude / acp 的双向 stdio 测试替身可执行工具
 │   ├── EndToEndTests/                       # 多 Worktree 并发 + 审批 + Diff + 零污染审计集成测试
 │   ├── BoundaryTests/                       # 依赖方向边界测试：核心不引用 provider 包，provider 包之间不互相引用
-│   ├── ReaperTests/                         # SIGKILL 主进程后的清理测试（已登记进程组 / 另建进程组的后代 / 外部 provider 下的四层进程树 三个场景）
+│   ├── ReaperTests/                         # SIGKILL 主进程后的清理测试（同组同会话 / 另建进程组的后代 / 被 launchd 收养的带标记后代 / 外部 provider 下的四层进程树 四个场景）
 │   └── PerformanceBenchmarks/               # 冷启动、5 并发内存曲线、50 文件 2000 行 Diff 首帧基准套件
 │
 ├── Scripts/                                 # 构建、签名、公证、合规检查自动化脚本
@@ -241,7 +241,7 @@ flowchart LR
   1. 搭建多模块 SwiftPM 仓库骨架（含 `ShepherdProviderKit` 契约草案与依赖方向边界测试）、`ci.yml` 与合规检查脚本；
   2. **Codex Spike**：实机跑通 `codex app-server --listen stdio://` 的 `initialize` → `initialized` → `thread/start` → `turn/start`；4 类需要用户参与的请求分别验证各自的回包（命令与文件审批回 `decision`，用户问答回 `answers`，MCP 表单回 `action` 加 `content`）；未知 Server Request 显式拒绝；用 `codex app-server generate-json-schema` 生成协议类型并存为快照；
   3. **Claude Spike（按 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4 的对齐结论）**：以官方 Python SDK 源码为依据，实机验证启动契约下的双向对话、三类交互、中断、权限模式切换与会话续聊，录制 Golden-file 样本并记录已测试的 CLI 版本；逐条确认 §3.1.4 表中「留给 M0 确认」的事项（`init` 帧字段、`--resume` 后的会话 ID、状态事件环境变量、`hook_callback`、需要清掉的环境变量名单、无头模式可用的斜杠命令清单）；
-  4. **Git & Reaper Spike**：实现 `WorktreeManager` + `RepoLockActor`（显式异步串行队列）+ `shepherd.yaml`/`orca.yaml` 解析（含 `git check-ignore` 与命令文本 SHA-256 哈希）+ 软链后写 `info/exclude` + `ShepherdReaper`（`kqueue` 孤儿进程清理）+ 后代进程跟踪；
+  4. **Git & Reaper Spike**：实现 `WorktreeManager` + `RepoLockActor`（显式异步串行队列）+ `shepherd.yaml`/`orca.yaml` 解析（含 `git check-ignore` 与命令文本 SHA-256 哈希）+ 软链后写 `info/exclude` + `ShepherdReaper`（每个 Agent 一层：看守进程、管道 EOF 兜底、进程树标记）；并确认 `claude` / `codex` 是否会清洗子进程环境导致标记丢失；
   5. **权限必经性验证（v2 新增）**：逐个驱动验证哪些动作一定会经过 Shepherd、哪些会被 Agent 按自身配置直接放行，据此确定界面能提供的权限档位；
   6. **真实 Agent 进程清理验证（v2 新增）**：让 Claude 与 Codex 各自启动一个长时间运行的命令，再对宿主发 `kill -9`，确认这些自成进程组的后代被清理；
   7. **无头模式信任验证（v2 新增）**：在带有项目级 hooks 与 MCP 配置的测试仓库里，确认 Claude 与 Codex 在各自驱动方式下会加载并执行什么，Claude 一侧已决定设仓库信任门（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4 第 6 项），本项确认它的覆盖范围，并决定 Codex 是否需要同样的门；
@@ -253,7 +253,7 @@ flowchart LR
   - [ ] **真实双 Agent 任务跑通（v2 新增 · 首要门禁）**：同一仓库开两个 Worktree，Claude 与 Codex 各跑一个任务；用户在 IDE 里工作，收到通知后能回到正确会话，完成一次审批和一次作答，再审 Diff、提交其中一条分支，并保住另一条分支尚未提交的改动。M0 阶段可以用命令行 Harness 加最简通知完成，不要求正式 UI；
   - [ ] Codex 与 Claude 实机连续跑通 20 轮无挂起，其中权限确认、问题作答、表单填写三类交互分别覆盖，Golden-file 样本入库；
   - [ ] 并发 5 路 `git worktree add` 零锁冲突失败；软链建立后 `git status` 干净；
-  - [ ] 对宿主测试进程发 `kill -9` 后 2 秒内，已登记的进程组全部清空；真实 Agent 启动的长时间命令同样被清理，未覆盖的情形写入报告；
+  - [ ] 对宿主测试进程发 `kill -9` 后 2 秒内，Agent 所在进程组与会话全部清空；真实 Agent 启动的长时间命令、被 launchd 收养的带标记后代同样被清理，未覆盖的情形写入报告；套一层启动器后 Agent 的 `stdin` 关闭、信号与退出码原样传递；
   - [ ] 权限档位清单定稿：每个档位都有逐驱动的验证记录，并写明哪些操作不经过 Shepherd；
   - [ ] Chat 渲染方案与 Markdown 引擎选型定稿；
   - [ ] Claude 接入对齐结论中「留给 M0 确认」的各项都有实测记录，与结论不符的写回 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4；
@@ -329,7 +329,7 @@ flowchart LR
 | **L1：协议 Golden-File 回放测试** | 各 provider 包的测试 Target | 将 M0 实机录制的脱敏 NDJSON 流量（Codex / Claude / ACP）作为只读 Fixture，按随机字节切片（模拟 TCP/Pipe 半包、粘包）喂入 `StdioNDJSONTransport` 与解码器 | 跨行截断、非 JSON 噪声日志混入、`codex` `-32001` 过载退避、未知 Server Request 显式拒绝、Claude `rate_limit_event` 识别、字段新增宽容解码 |
 | **L2：Fake CLI Harness 契约测试** | `FakeAgentHarness` + `EndToEndTests` | 独立编译的 Swift 命令行测试替身，通过启动参数扮演 Codex / Claude / ACP，可脚本化控制吐字速率（如 500 tokens/s）、触发审批请求、拒绝后改写行为、模拟 `SIGSEGV` 崩溃 | 5 路并发背压节流（验证 MainActor 更新率 ≤ 30Hz）、权限确认 / 问题作答 / 表单填写三类交互闭环、Follow-up 消息排队、Turn 中断（`⌘.`）与 `--resume` 重连 |
 | **L3：真实 `git worktree` 集成测试** | `ShepherdGitTests` | 在 `NSTemporaryDirectory()` 初始化真实裸仓 + 本地克隆仓执行真实 `git` 命令 | 并发 5 路 `worktree add` 无 `index.lock` 冲突；`shepherd.yaml` 覆盖 `orca.yaml` 优先级；`worktree.sharedDirectories` 拒绝未忽略路径（`git check-ignore`）与 `../` 路径穿越；命令文本 SHA-256 哈希变更拦截；软链建立后 `git status` 不出现软链本身；中断删除后重启续跑 |
-| **L4：孤儿进程 Reaper 破坏性测试** | `ReaperTests` | 拉起受测宿主子进程，由其通过 `ProcessSupervisor` 启动含 3 层进程树（含捕获并忽略 `SIGTERM` 的顽固孙进程），随后直接向宿主发 **`kill -9` (`SIGKILL`)**。**v2 补充**：进程树中加入主动另建进程组的后代（模拟 Agent 工具命令）。**v3 补充**：经外部 provider 启动的四层进程树（替换原终端作业场景） | 断言 2 秒内所有登记的 PGID 及同组的 3 层孙进程均返回 `ESRCH`；另建进程组的后代经后代跟踪登记后同样被清理。同组进程清空不能证明真实 Agent 场景被覆盖，所以另设使用真实 CLI 的夜间或手动验证 |
+| **L4：孤儿进程 Reaper 破坏性测试** | `ReaperTests` | 拉起受测宿主子进程，由其通过 `ProcessSupervisor` 经 `shepherd-reaper` 启动含 3 层进程树（含捕获并忽略 `SIGTERM` 的顽固孙进程），随后直接向宿主发 **`kill -9` (`SIGKILL`)**。**v2 补充**：进程树中加入主动另建进程组的后代（模拟 Agent 工具命令）。**v3 补充**：经外部 provider 启动的四层进程树（替换原终端作业场景）。**v4 补充**：加入脱离会话后被 launchd 收养的后代，以及一个主动清空环境的后代（预期不被清理，用来确认缺口如文档所述） | 断言 2 秒内 Agent 所在进程组、会话及 3 层孙进程均返回 `ESRCH`；另建进程组的后代、被收养但带进程树标记的后代同样被清理；与本树无关的同名进程不受影响。同组进程清空不能证明真实 Agent 场景被覆盖，所以另设使用真实 CLI 的夜间或手动验证 |
 | **L5：性能基准与零污染审计** | `PerformanceBenchmarks` | 自动化 `XCTMetric` 采集 + 沙盒临时 `HOME` 文件系统快照 Diff | 验证冷启动 ≤ 400ms、空闲内存 ≤ 80 MB、5 并发 15 分钟内存 ≤ 220 MB 且无持续增长、50 文件/2000 行 Diff 首帧 ≤ 150ms；断言运行全流程后 `~/.claude`、`~/.codex` 与目标仓库零未声明写入 |
 
 > **v3 补充**：五层之外另有一项静态检查，即依赖方向边界测试（`Tests/BoundaryTests`）：断言 `ShepherdCore` 与 `ShepherdUI` 不引用任何 provider 包，provider 包之间不互相引用。

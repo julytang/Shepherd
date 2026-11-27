@@ -1,7 +1,7 @@
 # Shepherd macOS 原生系统架构设计
 
 > **文档角色**：Shepherd 方案计划书 — 系统架构篇（`docs/02-architecture.md`）  
-> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成校准，**路线 C1 保留**。修订版 v3（2026-11-26）：性能数字均为未实测目标；审批模型、进程清理、Worktree 安全与 Chat 渲染四处设计已按评审修正（v2）；**Claude Code 接入已对齐（§3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划（v3）**。  
+> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成校准，**路线 C1 保留**。修订版 v3（2026-11-26）：性能数字均为未实测目标；审批模型、进程清理、Worktree 安全与 Chat 渲染四处设计已按评审修正（v2）；**Claude Code 接入已对齐（§3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划（v3）**。v4（2026-11-27）：崩溃兜底改为每个 Agent 一个看守进程加进程树标记，借鉴 Orca 的 `orca-provider-exec`（§3.3.3）。  
 > **目标平台与协议**：macOS 15.0+ (Sequoia) · **仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · Swift 6.0+ Strict Concurrency · **MIT License**  
 > **架构愿景**：以 Conductor / cmux 级别的 macOS 原生轻快体验，承载 Orca 级别的跨厂商 BYOA（Claude Code / Codex / ACP Agent）与 Git Worktree 并发隔离编排能力。  
 > **范围说明**：本期聚焦本地单机多 Agent 编排核心，**不包含**模型路由网关或协议转换代理（如 Magpie 类能力），仅在底层预留干净的子进程环境变量注入与协议扩展边界（详见第 7 节）。
@@ -349,7 +349,7 @@ v2 列出的 11 项待定事项已逐项对齐，结论如下。「留给 M0 确
 | 6 | **工作区信任** | Shepherd 设自己的仓库信任门；不限制 `--setting-sources`；见下方「仓库信任门」 | 无头模式下项目级 hooks 与 MCP 的实际加载行为；`--setting-sources user` 能否挡住它们 |
 | 7 | **线协议参考来源** | 实现依据是官方 Python SDK（MIT）源码，回归依据是实机 Golden-file；记录已测试的 `claude` 版本范围，超出时提示但不阻止 | — |
 | 8 | **终端转录对账** | 取消。不内嵌终端，也就没有终端里产生的轮次（§2.4） | — |
-| 9 | **环境变量** | 与用户终端里的环境一致，只去掉宿主带进来的；见下方「环境变量」 | 需要清掉的变量完整名单；环境里有 `ANTHROPIC_API_KEY` 时无头模式的计费行为 |
+| 9 | **环境变量** | 与用户终端里的环境一致，只去掉宿主带进来的，另加一个进程树标记（v4，§3.3.3）；见下方「环境变量」 | 需要清掉的变量完整名单；环境里有 `ANTHROPIC_API_KEY` 时无头模式的计费行为 |
 | 10 | **用量政策预案** | 接受该风险，产品内不设对冲；出路在 Shepherd 之外：API Key，或经外部网关换模型与账号（§7） | 同一任务在 Native Chat 路径下的额度消耗 |
 | 11 | **代码体量** | 原估 1.5–2 千行作废；粗估 6–9 千行 Swift（不含测试与 UI），见下方「代码体量」 | 用实测替换粗估 |
 
@@ -660,25 +660,45 @@ stateDiagram-v2
 
 AI 编程代理在执行测试或启动开发服务器时，往往会派生多层孙进程（`shepherd` → `claude` → `bash` → `pnpm test` → `vitest`）。若仅终止直接子进程 PID，极易产生占满 CPU 或锁死端口的孤儿进程。
 
-Shepherd 实施以下防孤儿保障机制（v2 增加第 4 点，并收窄了前三点的覆盖范围表述）：
+Shepherd 实施以下防孤儿保障机制（v2 增加第 4 点，并收窄了前三点的覆盖范围表述；v4 按 Orca 的做法改写第 3、4 点）：
 1. **强制独立进程组（Process Group Isolation）**：
    - 所有子进程（Agent CLI、`scripts.setup`、`scripts.archive` 及外部 provider 进程）统一通过底层 `posix_spawn` 配合 `POSIX_SPAWN_SETPGROUP`（`pgroup = 0`）启动，使其自身 PID 自动成为全新进程组 ID（`PGID == childPID`），所有后代进程默认继承同一 `PGID`。
    - **v2 更正**：「默认继承」不等于「都在组内」。实测 Claude Code 会把 Bash 工具启动的 shell 放进独立进程组，交互式 shell 的前台作业也自成进程组（`01-orca-audit.md` §7.4）。只向 Agent 的进程组发信号覆盖不到它们。
 2. **两阶段优雅终止（Graceful Escalation）**：
    - 会话关闭或 App 正常退出（`applicationWillTerminate`）时，先发送协议级退出请求（关闭 `stdin`），随即向整个进程组发送 `kill(-pgid, SIGTERM)`；
    - 等待宽限期（会话关闭 2.5s / App 退出 1.2s），通过 `waitpid` 非阻塞轮询确认进程组清空；若仍存活则执行 `kill(-pgid, SIGKILL)` 强制收割。
-3. **主进程异常崩溃兜底（`shepherd-reaper` 轻量 Watchdog）**：
-   - macOS 不具备 Linux 的 `prctl(PR_SET_PDEATHSIG)`，若 Shepherd 主进程遭遇 `SIGKILL` 或底层 Crash，无法执行 `applicationWillTerminate`。
-   - 解决方案：随主 App 内嵌一个极简纯 C/Swift 编译的守护助手 `Contents/Helpers/shepherd-reaper`（体积 < 200 KB，空闲内存 < 2 MB）。
-   - 主 App 启动后与 `shepherd-reaper` 建立一对匿名 Pipe：每当主 App 派生/回收一个 `PGID`，便向 Pipe 写入 `ADD <pgid>` / `DEL <pgid>`；`shepherd-reaper` 同时通过 `kqueue`（`EVFILT_PROC` + `NOTE_EXIT` 监听主 App PID 与 Pipe EOF）静默挂起。
-   - 一旦主 App 意外崩溃或被强杀，`shepherd-reaper` 毫秒级唤醒，向所有登记在册的存活 `PGID` 发送 `SIGTERM` → 1s → `SIGKILL`，清空已登记的进程组后自行退出（含按需启用的 ACP 备用通道进程）。未登记的后代不在覆盖范围内，因此依赖下面第 4 点。
-4. **后代进程跟踪（v2 新增）**：
-   - 在进程组之外，`ProcessSupervisor` 需要持续跟踪每个 Agent 的后代进程：周期性地、以及在停止前抓取后代快照，把新发现的进程组登记给 `shepherd-reaper`。
-   - 快照以 pid 加启动时间做身份校验，防止 PID 复用后误杀无关进程。
-   - 停止前必须先抓快照。根进程退出后，被 reparent 的后代无法再通过父子关系找到（Orca 的做法，见 `01-orca-audit.md` §7.3）。
-   - 跟踪存在采样间隙，短命进程或在两次采样之间脱离的进程可能漏掉。验收口径要写明这一点，不再使用「全部后代零残留」的表述。
-   - **v3 补充**：外部 provider 使进程树多一层（Shepherd、provider、CLI、工具）。跟踪从 provider 进程起算，不能假设 Agent CLI 是 Shepherd 的直接子进程。
-   - **v3 补充**：`⌘⇧T` 打开的系统终端不归 Shepherd 管理，其中的进程不在清理范围内。
+3. **主进程异常崩溃兜底（`shepherd-reaper`，v4 改写）**：
+   - macOS 不具备 Linux 的 `prctl(PR_SET_PDEATHSIG)` 与 subreaper。Shepherd 主进程遭遇 `SIGKILL` 或崩溃时，无法执行 `applicationWillTerminate`，清理只能靠另一个活着的进程。
+   - **v4 改动**：原方案是全局一个 `shepherd-reaper`，由主 App 经管道登记和注销 `PGID`。它有一个缺口：主 App 死后，新逃逸的后代没人登记。现改为借鉴 Orca 的 `orca-provider-exec`（`01-orca-audit.md` §7.7）：**每启动一个 Agent 进程套一层 `shepherd-reaper`**，不再有全局登记表。
+   - **启动方式**：`ProcessSupervisor` 不直接启动 Agent CLI，而是启动 `Contents/Helpers/shepherd-reaper -- <cli> <args…>`。`scripts.setup`、`scripts.archive` 与外部 provider 进程同样经它启动。
+   - **进程结构**：
+     - `shepherd-reaper` 新建会话，派生一个同会话的看守进程，然后 `exec` 成目标 CLI。
+     - CLI 的参数、标准输入输出、信号屏蔽保持原样，协议层感知不到这一层。
+     - 环境变量只多一个下面说的标记。
+   - **发现主 App 死亡**：看守进程持有一根通向主 App 的管道。主 App 正常停止会话时在这根管道上发指令；管道读到 EOF 即视为主 App 已死，看守进程自行走完停止流程。不再需要 `kqueue` 监听主 App 的 PID。
+   - **停止流程**：与第 2 点相同，先关 `stdin`，宽限期后 `SIGTERM`，再宽限后 `SIGKILL`。流程只有一个阶段状态和一个绝对截止时间，重复指令不会重置它。
+   - **体积目标**：纯 C 或 Swift，零三方依赖，体积 < 200 KB。每个 Agent 多一个常驻的看守进程，空闲内存目标 < 2 MB。
+4. **进程树标记与后代清理（v4 改写，原「后代进程跟踪」）**：
+   - **标记**：`shepherd-reaper` 在 `exec` 前给环境加一个变量 `SHEPHERD_PROVIDER_TREE=<随机值>`。Agent 启动的所有工具都会继承它。
+   - **清理范围**：停止时，看守进程清理三类进程：
+     - Agent 所在进程组与会话里的进程；
+     - 当前仍是 Agent 后代的进程；
+     - 已被 launchd 收养、但环境里带有本树标记的进程。
+   - 第三类覆盖了 Claude Code 把 Bash 工具放进独立进程组的情况（`01-orca-audit.md` §7.4）。它不依赖主 App 事先登记，主 App 死后才逃逸的后代同样能找到。
+   - **身份校验**：成员以 pid 加启动时间标识，防止 PID 复用后误杀。读不到环境的进程按「无法证明属于本树」处理，不杀。
+   - **主 App 内的后代快照降为辅助**：`DescendantTracker` 仍在停止前抓一次快照，用于界面展示和诊断日志，不再承担登记职责。
+   - **已知缺口**：
+     - 后代进程主动清空或改写了环境、又脱离了会话和进程组时，标记找不到它。
+     - 读取其他进程环境的方式（`sysctl` `KERN_PROCARGS2`）对同一用户的进程可用，但对已被系统限制访问的进程可能失败。
+     - 所以验收口径仍然不使用「全部后代零残留」的表述，验收报告要列出未覆盖的情形。
+   - **与零注入原则的关系**：这是 Shepherd 向 Agent 环境加入的唯一一个变量，属于已声明的写入。它只是一个不透明的标识，不改变 Agent 的行为，不包含 `ORCA_` 前缀。会话环境「与用户终端一致」的表述（§3.1.4）相应改为「除这一个标记外一致」。
+   - **外部 provider**：进程树多一层（Shepherd、provider、CLI、工具）。`shepherd-reaper` 套在 provider 进程外面，标记沿整棵树继承，不需要假设 Agent CLI 是 Shepherd 的直接子进程。
+   - **不在范围内**：`⌘⇧T` 打开的系统终端不归 Shepherd 管理，其中的进程不清理。
+   - **留给 M0 确认**：
+     - `claude`、`codex` 与常见 ACP Agent 是否会清洗子进程环境，导致标记丢失；
+     - 套一层启动器后，Agent 的 `stdin` 关闭、信号与退出码是否原样传递；
+     - 每个 Agent 一个看守进程的实际内存与启动耗时；
+     - Orca 的实现只读了注释与关键结构，细节以 M0 实测为准。
 
 #### 3.3.4 本地 Socket / IPC 安全与权限审批门控
 - **本地 IPC 安全规范**（用于内部命令通道）：
@@ -735,7 +755,7 @@ Shepherd/
 ├── Shepherd.xcodeproj                # macOS App Target (Signing, Entitlements, Info.plist)
 ├── App/                              # 极薄入口层（AppDelegate, WindowGroup, MenuBarExtra, DeepLink）
 ├── Helpers/
-│   └── ShepherdReaper/               # 极简 Watchdog 孤儿进程回收助手 (编译打入 Contents/Helpers/)
+│   └── ShepherdReaper/               # 每个 Agent 一层的启动器与看守进程 (编译打入 Contents/Helpers/)
 └── Packages/
     ├── ShepherdProviderKit/          # provider 契约：AgentAdapter、AgentEvent、三类交互、能力声明、启动规格、NDJSON 传输层
     ├── ShepherdCore/                 # 领域模型、SessionCoordinator、ApprovalGatekeeper、EnvProvider、ProviderRegistry
@@ -770,7 +790,7 @@ Shepherd/
 | **Claude Code `stream-json` 控制协议非公开稳定契约变动** | 高 | 1) 解析器采用宽容解码（忽略未知字段，保留原始 JSON 兜底显示）；2) 备用路径是外部 provider `claude-acp`（依赖 SDK 与 Node，用户自装，切换需新开会话，不能视为零成本降级）；3) 建立基于真实抓包回放的协议契约回归测试集；4) `claude-direct` 独立成包，协议变动的修复不牵动核心（§3.1.5）。 |
 | **macOS GUI 环境缺少用户 Shell `PATH` / 环境变量** | 高 | 启动异步探测用户 Login Shell 环境并持久化缓存，同时支持在设置页查看/手动覆写 `git`、`claude`、`codex` 路径。 |
 | **多 Worktree 并发操作触发 `.git/index.lock` 冲突** | 中 | `WorktreeManager` 强制按 `repoCommonDir` 串行队列执行写拓扑操作（须为显式异步队列，actor 可重入，见 §3.2.3），并在遇到临时锁时执行带抖动的有限次数重试。 |
-| **App 崩溃遗留高负载子进程（孤儿 `vitest`/`cargo`）** | 中 | 全量独立进程组（`POSIX_SPAWN_SETPGROUP`）+ 内嵌 `shepherd-reaper`（`kqueue` 监控主进程退出即时清场）。v2：Agent 自建的进程组不在原设计覆盖范围内，另需后代进程跟踪（§3.3.3 第 4 点）。 |
+| **App 崩溃遗留高负载子进程（孤儿 `vitest`/`cargo`）** | 中 | 全量独立进程组（`POSIX_SPAWN_SETPGROUP`）+ 每个 Agent 一层 `shepherd-reaper` 看守进程（管道 EOF 发现主进程死亡）+ 继承式进程树标记，覆盖 Agent 自建的进程组与被 launchd 收养的后代（v4，§3.3.3 第 3、4 点）。 |
 | **超大 Diff（> 5,000 行）导致 UI 卡顿** | 中 | 放弃纯 SwiftUI 列表，采用虚拟化 AppKit `NSTableView` + 按可见区域按需语法高亮 + 单文件超大 Diff 自动折叠阈值（默认 > 1,500 行需点击展开）。 |
 | **审批控制范围小于界面承诺（v2 新增）** | 高 | 档位映射 Agent 原生模式；M0 逐驱动验证哪些动作必经 Shepherd；界面如实标注覆盖范围（§3.3.4）。 |
 | **无头模式跳过工作区信任（v2 新增）** | 高 | Shepherd 自设仓库信任门（§3.1.4 第 6 项）；M0 验证 Claude 与 Codex 在各自驱动方式下加载项目级配置的行为。 |

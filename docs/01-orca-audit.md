@@ -1,7 +1,7 @@
 # 01 — `stablyai/orca` 上游代码审计报告
 
 > **审计对象**：`https://github.com/stablyai/orca`（本地只读参考快照 `/tmp/shepherd-orca-ref`；该路径在临时目录，重启或清理后会丢失，复现方式见 §7.1）
-> **修订状态**：评审修订版 v2（2026-11-26）。正文审计结论未变；新增 §7「评审补充查证」，并在涉及 Claude 协议参考、ACP 适配器依赖与体量估算的几处加了「更正（v2）」标注。v3：新增 §7.6（Magpie 的插件结构）。本文 §4.4 建议为 Native Chat 配终端抽屉、§5 把 `agent-hooks` 与 `pty` 列为 P1 可选，这两处建议最终未被采纳，Shepherd 不内嵌终端（[`docs/02-architecture.md`](./02-architecture.md) §2.4）；正文保留原样，作为当时的审计意见。
+> **修订状态**：评审修订版 v2（2026-11-26）。正文审计结论未变；新增 §7「评审补充查证」，并在涉及 Claude 协议参考、ACP 适配器依赖与体量估算的几处加了「更正（v2）」标注。v3：新增 §7.6（Magpie 的插件结构）。v4（2026-11-27）：新增 §7.7（Orca 的主程序崩溃兜底 `orca-provider-exec`），更正 §5 与 §7.3 中关于进程清理的不完整表述。本文 §4.4 建议为 Native Chat 配终端抽屉、§5 把 `agent-hooks` 与 `pty` 列为 P1 可选，这两处建议最终未被采纳，Shepherd 不内嵌终端（[`docs/02-architecture.md`](./02-architecture.md) §2.4）；正文保留原样，作为当时的审计意见。
 > **审计基线**：Commit `284bf8425a0a518225c81becdaf0023d52fa5d1e`（`package.json` 版本 `1.4.214`，锁定 `Node v24.22.3` / `Electron 45.4.1`）
 > **审计目标**：为 **Shepherd**（轻量裁剪版 macOS Native 多 AI 编程代理编排应用，本期忽略 Magpie 模型网关）提供面向代码实证的合规底线、Electron 解耦评估、Agent 协议细节、Worktree/存储/Skill 实况以及模块级裁剪清点表。
 > **事实分级说明**：本文严格区分 **`[已查证]`**（直接来自上游仓库源码、构建脚本或官方文档）与 **`[推断/评估]`**（基于代码事实推演出的工程工作量、合规风险或行业经验判断）。
@@ -346,7 +346,7 @@ Orca 采用 **「轻量 Stub + 按需拉取 Guide」两级分发架构**（`skil
 | `src/main/git` + `source-control` | 263 | 29,769 | **0** | **核心保留（大幅精简）** | 可直接跑 | **低（~1.5-2K LOC）**：封装 `git worktree` / `status` / `diff` / `commit` / `gh pr create`，去掉 WSL/SSH 远端适配 |
 | `src/main/workspaces` + `workspace-hooks` | 141 | 16,387 | 1 处（idle gate） | **核心保留（精简）** | 几乎无 Electron 耦合 | **低（~1K LOC）**：Worktree 注册表、`shepherd.yaml`/`orca.yaml` 解析、SHA-256 信任哈希、`git check-ignore` 软链校验 |
 | `src/main/native-chat` | 992 | 127,958 | **0** | **仅参考事件模型，大幅裁剪** | 与 `runtime`/SQLite/Mobile 分页深度互锁，极难剥离 | **中（~2-3K LOC）**：Swift 统一事件流模型（Turn/Thinking/ToolCall/Approval/Diff/Usage）+ GRDB 持久化；砍掉多端同步与复杂历史导入 |
-| `src/main/provider-process` + `native/provider-exec` + `@orca/process-host` | 73 | 7,856+ | **0** | **核心参考（保留设计思想）** | 直接复用 | **低（~0.6K LOC）**：macOS 专用 `Process` + POSIX `setpgid`/`killpg` + 优雅 `SIGTERM→SIGKILL` 进程树回收，无需兼容 Windows ConPTY/Job |
+| `src/main/provider-process` + `native/provider-exec` + `@orca/process-host` | 73 | 7,856+ | **0** | **核心参考（保留设计思想）** | 直接复用 | **低（~0.6K LOC）**：macOS 专用 `Process` + POSIX `setpgid`/`killpg` + 优雅 `SIGTERM→SIGKILL` 进程树回收，无需兼容 Windows ConPTY/Job。**更正（v4）**：`native/provider-exec` 不只是进程树回收，还负责主程序崩溃后的兜底清理，见 §7.7 |
 | `src/main/agent-hooks` | 175 | 22,257 | **0** | **按需保留（P1 极简版）** | 直接复用但包含 20+ Agent 与 Windows 逻辑 | **极低（~0.5K LOC）**：若配 P1 可折叠终端抽屉，仅需极简 macOS loopback HTTP + `curl` Hook 与 OSC 7501 解析 |
 | `src/main/daemon` + `pty` | 445 | 50,320 | 1-2 处 | **大幅裁剪（P1 可选）** | 强依赖 `node-pty` 与独立守护进程 | **极低（复用现成库）**：macOS 直接集成 `SwiftTerm` 或 `libghostty`，彻底省去 5 万行跨平台 PTY 守护与重连代码 |
 | `src/main/persistence` + `sqlite` | 454 | 59,078 | 2 处 | **核心替换** | 依赖 `node:sqlite` + 独立写/备份 Worker | **极低（~0.8K LOC）**：原生 `GRDB.swift`（WAL 模式），无需 legacy JSON 迁移与多进程锁 |
@@ -406,7 +406,7 @@ git -C /tmp/shepherd-orca-ref checkout 284bf8425a0a518225c81becdaf0023d52fa5d1e
 - **基础选项**：`includePartialMessages: true`、`systemPrompt` 用 `claude_code` 预设、默认 `settingSources`、额外参数 `--replay-user-messages`；环境变量 `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`（没有 `result` 帧时靠它判断空闲）。
 - **会话 ID 规则**：Orca 自己生成会话 ID。新会话传 `sessionId`（即 `--session-id`），磁盘上已有转录才传 `resume`。源码注释：没有转录时 `--resume` 会失败，ID 已存在时 `--session-id` 会冲突。
 - **权限模式映射**：`ask → default`（显式覆盖用户设置里的 `defaultMode`）、`accept-edits → acceptEdits`、`auto → auto`、`own` 则不传（沿用用户设置）、完全放行用 `--dangerously-skip-permissions`。
-- **进程清理**：停进程前先抓后代进程快照，以 pid、pgid 与启动时间做身份校验；注释写明根进程退出后被 reparent 的后代将无法再发现。
+- **进程清理**：停进程前先抓后代进程快照，以 pid、pgid 与启动时间做身份校验；注释写明根进程退出后被 reparent 的后代将无法再发现。**更正（v4）**：这只是主进程内的那一半。Orca 另有原生启动器，用环境变量标记找回被 reparent 的后代，并在主程序崩溃时兜底，见 §7.7。
 - **会写用户配置**：终端通道把托管 hooks 写进 `~/.claude/settings.json`；工作区信任以尽力而为的方式写入 `~/.claude.json` 的 `hasTrustDialogAccepted`。
 - **转录回填**：`claude-transcript-catch-up.ts` 从 Claude 自己的 JSONL 转录补齐外部续聊产生的轮次。
 - **代码量**：`claude/structured` 13,185 行、`sdk-transport` 659 行、`child-process` 664 行、`transcripts` 1,936 行、`hooks` 1,186 行、`claude-accounts` 4,876 行。
@@ -449,3 +449,24 @@ git -C /tmp/shepherd-orca-ref checkout 284bf8425a0a518225c81becdaf0023d52fa5d1e
   - 来源：`README.zh-CN.md`。
 - **归属与版本**：一个订阅要么由内置实现负责，要么由插件负责。Magpie 为每个迁移到插件的订阅记录所需的最低插件版本，内置实现逐个退役。来源：`docs/subsystems/provider-plugins.md`。
 - **对 Shepherd 的含义**：可借鉴的是两层结构、清单加版本范围，以及用测试守住依赖方向。不能照搬的是脚本运行时与基本无状态的插件契约（`docs/02-architecture.md` §3.1.5）。
+
+### 7.7 Orca 的主程序崩溃兜底：`orca-provider-exec`（v4 · 查证于 2026-11-27）
+
+v2 审计只记录了主进程内的进程清理，没有查「主程序崩溃或被强杀后由谁清理」。补查结果：Orca 有专门的原生启动器负责这件事。
+
+- **来源**：`native/provider-exec/provider-exec.c`，约 2,200 行 C。查证方式是读 GitHub 上 `main` 分支的文件头注释与关键结构，没有逐行读完，也没有运行验证。该文件的提交记录在 2026-11-16 至 11-25 之间，审计基线 `284bf842` 时它可能尚不存在或形态不同。
+- **粒度**：每启动一个 provider CLI 套一层，不是全局一个守护进程。
+- **进程结构**：
+  - 启动器本身是一个小父进程，负责回收 leader 并上报退出状态。
+  - leader 新建会话（session），等主程序发出放行信号后再 `exec` 成 CLI；CLI 的参数、环境、信号屏蔽保持原样。
+  - leader 在 `exec` 前派生一个同会话的看守进程（watcher）。
+- **怎么发现主程序死了**：看守进程持有一根通向主程序的管道（owner pipe）。管道上可以收到「关 stdin」「终止」「回收」三种指令；读到 EOF 即视为主程序已死。
+- **停止流程**：关 stdin 后等一段宽限期，再发 `SIGTERM` 并等待，最后回收。整个流程只有一个阶段状态和一个绝对截止时间，重复的终止指令不会重置或缩短它；主程序中途死亡时流程接着走完。
+- **找回逃逸的后代**：给进程树注入环境变量标记 `ORCA_PROVIDER_TREE`，CLI 启动的所有工具都会继承。在 macOS 上，被 launchd 收养、已脱离原进程组的后代，靠读取进程环境里的这个标记仍能找到。同一会话里的进程也算作成员。
+- **身份校验**：成员以 pid 加内核记录的启动时间标识，防止 pid 复用后误杀。读不到环境的进程按「无法证明属于本树」处理，不杀。
+- **无法证明时的行为**：如果当前主机上无法证明进程树已清空，CLI 所在进程组消失后立即结束，结果标记为未验证，不空等截止时间。
+- **Linux 上的差异**：启动器把自己设为 subreaper 来收养后代。macOS 没有这个机制，所以才用环境变量标记。
+- **对 Shepherd 的含义**：
+  - 原方案的全局 `shepherd-reaper` 依赖主程序登记进程组，主程序死后新逃逸的后代没人登记。Orca 的「每个 Agent 一个看守进程，加继承式环境变量标记」能补上这个缺口。
+  - Shepherd 借鉴的是设计，不复制代码。标记变量要用自己的名字，不能出现 `ORCA_` 前缀（§1.3）。
+  - 采纳后的设计见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3。

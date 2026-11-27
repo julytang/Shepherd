@@ -1,6 +1,6 @@
 # Shepherd 方案计划书总纲
 
-> **文档状态**：修订版 v3（2026-11-26）· 路线 C1 保留；立项决策第 4 项改定为不内嵌终端，新增第 5 项 provider 分层；性能数字均为未验证目标；**Claude Code 接入已对齐**；全部排期内容已移除（修订记录见 §8）  
+> **文档状态**：修订版 v4（2026-11-27）· 路线 C1 保留；立项决策第 4 项改定为不内嵌终端，新增第 5 项 provider 分层；性能数字均为未验证目标；**Claude Code 接入已对齐**；全部排期内容已移除；**崩溃兜底改为每个 Agent 一个看守进程**（修订记录见 §8）  
 > **目标平台与协议**：macOS 15.0+ (Sequoia) · **仅 Apple Silicon (`arm64`)**（不支持 Intel Mac）· Swift 6.0+ Strict Concurrency · **MIT License**  
 > **文档导航**：[01 上游代码审计](./01-orca-audit.md) · [02 系统架构设计](./02-architecture.md) · [03 产品与 UX 规范](./03-product-and-ux.md) · [04 工程路线图与测试](./04-roadmap-and-engineering.md)  
 > **范围边界**：本期专注本地单机多 Agent 编排体验，**明确排除模型路由与额度容灾网关（如 Magpie 类能力）**，仅在架构底层预留干净的子进程环境变量注入边界供后续阶段按需对接。
@@ -80,7 +80,7 @@ flowchart LR
         Store["WorkspaceStore (@Observable) & 33ms 节流合并"]
         Gate["ApprovalGatekeeper + SHA-256 脚本门控"]
         WT["WorktreeManager (Per-Repo 串行写锁 + FSEvents)"]
-        Sup["ProcessSupervisor (PGID + 后代跟踪) + ShepherdReaper"]
+        Sup["ProcessSupervisor + ShepherdReaper (每个 Agent 一层看守 + 进程树标记)"]
     end
 
     subgraph Drivers["Agent Providers (契约包 + 内置 provider · 零闭源 SDK)"]
@@ -112,7 +112,7 @@ flowchart LR
   - **外部 provider**：一份清单加一个说 ACP 的可执行文件，用户手动添加并确认；Shepherd 不捆绑、不代为安装。
   - **契约定版**：经三种实现验证后再定为 1.0（[`docs/02-architecture.md`](./02-architecture.md) §3.1.5）。
 - **高并发防卡顿设计**：每个活跃会话独占 `actor SessionRuntime`，对高频 Token 流施加 **33ms（30Hz）合并窗口**后向 `@MainActor` 推送不可变尾块增量；大 Diff 从 Day 1 采用 AppKit 虚拟化 `NSTableView`（或 TextKit 2），目标保持 60/120fps。Chat 的列表方案与 Markdown 引擎在 M0 选型（v2 新增）。
-- **Direct Distribution 与防孤儿进程**：因 Mac App Store 强制 App Sandbox 无法执行用户本机开发工具链与读取 `~/.claude`/`~/.codex`/`~/.ssh`，明确走 **Direct Distribution（Hardened Runtime + Developer ID + `notarytool` 公证 + Sparkle 2 EdDSA 更新 + Homebrew Cask）**；所有子进程强制 `POSIX_SPAWN_SETPGROUP` 独立进程组，并随包内嵌 **< 200 KB 的 `shepherd-reaper`**（`kqueue` 监听主进程 PID），即使主 App 遭遇 `SIGKILL` 崩溃也能在 2 秒内清空已登记的进程组。v2：Agent 会为自己启动的命令另建进程组，这部分依赖新增的后代进程跟踪，覆盖范围见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3。
+- **Direct Distribution 与防孤儿进程**：因 Mac App Store 强制 App Sandbox 无法执行用户本机开发工具链与读取 `~/.claude`/`~/.codex`/`~/.ssh`，明确走 **Direct Distribution（Hardened Runtime + Developer ID + `notarytool` 公证 + Sparkle 2 EdDSA 更新 + Homebrew Cask）**；所有子进程强制 `POSIX_SPAWN_SETPGROUP` 独立进程组，并随包内嵌 **< 200 KB 的 `shepherd-reaper`**。v4：每启动一个 Agent 套一层 `shepherd-reaper`，它的看守进程靠管道 EOF 发现主 App 死亡，即使主 App 遭遇 `SIGKILL` 崩溃也能自行完成清理；Agent 为自己启动的命令另建的进程组、被 launchd 收养的后代，靠继承式的进程树标记找回。这套做法借鉴 Orca 的 `orca-provider-exec`，覆盖范围与已知缺口见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3。
 - **本地持久化与远期扩展边界**：选用 `GRDB.swift` v7（SQLite WAL + FTS5 + >128KB 大对象外置 LRU）；通过分层 `ProcessEnvironmentProvider` 保持环境变量注入干净，确保未来可零重构对接外部模型路由网关或 Review CLI。
 
 ---
@@ -161,13 +161,13 @@ flowchart LR
 
 | 里程碑 | 核心交付物 | 关键退出验收门禁（Go/No-Go） |
 | :--- | :--- | :--- |
-| **M0：验证 Spike 与工程地基** | 10 个工程模块骨架（8 个 SwiftPM 库 + App + Reaper，含 provider 契约草案与依赖方向边界测试）、CI 合规检查脚本；实机打通 Codex / Claude `stream-json` / 外部 provider `claude-acp` / `WorktreeManager` + `RepoLockActor` / `ShepherdReaper` + 后代进程跟踪；v2 新增五项验证：权限必经性、真实 Agent 进程清理、无头模式信任、Chat 渲染选型、用量实测；v3 新增两项：外部 provider 验证、provider 契约验证 | **首要门禁：真实双 Agent 任务跑通**（同仓两个 Worktree，Claude 与 Codex 各一个任务，完成一次审批和一次作答，审 Diff、提交一条分支并保住另一条的未提交改动）；20 轮实机无挂起且三类交互分别覆盖；5 并发 `worktree add` 零锁冲突；`kill -9` 后已登记进程组与真实 Agent 命令均被清理；权限档位与 Chat 方案定稿；Claude 接入留给 M0 确认的各项都有实测记录；provider 契约草案经三种实现验证；根据实测结果复核首版范围。 |
+| **M0：验证 Spike 与工程地基** | 10 个工程模块骨架（8 个 SwiftPM 库 + App + Reaper，含 provider 契约草案与依赖方向边界测试）、CI 合规检查脚本；实机打通 Codex / Claude `stream-json` / 外部 provider `claude-acp` / `WorktreeManager` + `RepoLockActor` / `ShepherdReaper` + 后代进程跟踪；v2 新增五项验证：权限必经性、真实 Agent 进程清理、无头模式信任、Chat 渲染选型、用量实测；v3 新增两项：外部 provider 验证、provider 契约验证 | **首要门禁：真实双 Agent 任务跑通**（同仓两个 Worktree，Claude 与 Codex 各一个任务，完成一次审批和一次作答，审 Diff、提交一条分支并保住另一条的未提交改动）；20 轮实机无挂起且三类交互分别覆盖；5 并发 `worktree add` 零锁冲突；`kill -9` 后 Agent 所在进程组、真实 Agent 命令与带标记的后代均被清理；权限档位与 Chat 方案定稿；Claude 接入留给 M0 确认的各项都有实测记录；provider 契约草案经三种实现验证；根据实测结果复核首版范围。 |
 | **M1：MVP 核心闭环** | `GRDB` WAL 存储、Per-Session Actor 33ms 节流、权限档位（映射 Agent 原生模式）与三类待处理交互、三个内置 provider 与外部 provider 的手动添加、原生双栏 UI（Sidebar + Native Chat + `⌘N` + 信任弹窗：仓库信任门与 SHA-256 脚本信任）、`MenuBarExtra` & 系统通知、`⌘O`/`⌘⇧T` 跳转 | 同仓并发跑通 Claude + Codex Worktree 零冲突；`claude-direct` 不可用时可改用 `claude-acp` 新开会话完成同一任务；冷启动 **≤ 400 ms**、空闲内存 **≤ 80 MB**、通知延迟 **≤ 300 ms**；通过真实 `orca.yaml` 兼容与零污染审计。 |
 | **M2：原生 Diff / PR 与性能打磨** | AppKit 虚拟化 Diff Inspector（`⌘⇧D`、Unified/Split、Hunk Stage/Discard）、`FSEvents` 实时刷新、`gh` Commit/PR 闭环、`⌘K` 命令面板与全键盘流、`Protocol Inspector` | 50 文件 / 2,000 行 Diff 首帧 **≤ 150 ms**；外部保存自动刷新 **≤ 500 ms**；5 并发 15 分钟压测内存 **≤ 220 MB** 且稳定 **60/120fps**；全键盘端到端验收通过。 |
 | **M3：外部 provider 扩展与体验进阶** | 5–8 个外部 provider 的清单与方言说明、`ShepherdProviderKit` 定为 1.0、Claude 会话分叉（及视 M0 结果而定的「严格模式」）、GRDB FTS5 全文检索、人类向 `shepherd` CLI | 每个外部 provider 跑通一次含审批的真实任务；外部 provider 会话在宿主 `kill -9` 后被清理；契约 1.0 发布后已有 provider 无需修改；`.dmg` 体积仍 **≤ 25 MB**。 |
 | **M4：签名公证与 Public Beta** | 由内向外 Hardened Runtime 签名（禁用 `codesign --deep`）、`notarytool` 公证、Sparkle 2 EdDSA `appcast.xml`、Homebrew Cask、20–50 人种子公测 | 无 Xcode 干净 macOS 15 零警告通过 Gatekeeper；实测 Sparkle 2 原地升级成功；7 天高强度 Dogfooding 零孤儿进程与零数据损坏。 |
 
-**五层无外网自动化测试保障**：① 协议 Golden-File 随机切片回放（各 provider 包的测试）→ ② 独立 `FakeAgentHarness` 500 tok/s 高并发契约测试 → ③ 真实临时仓 `git worktree` / `check-ignore` / SHA-256 集成测试 → ④ `SIGKILL` 宿主验证 `shepherd-reaper` 孤儿清场专项测试（v2：含另建进程组的后代；v3：含外部 provider 下的四层进程树） → ⑤ `XCTMetric` 性能基准 + 沙盒 `HOME` 零污染快照审计。五层之外另有依赖方向边界测试，断言核心不引用任何 provider 包。
+**五层无外网自动化测试保障**：① 协议 Golden-File 随机切片回放（各 provider 包的测试）→ ② 独立 `FakeAgentHarness` 500 tok/s 高并发契约测试 → ③ 真实临时仓 `git worktree` / `check-ignore` / SHA-256 集成测试 → ④ `SIGKILL` 宿主验证 `shepherd-reaper` 孤儿清场专项测试（v2：含另建进程组的后代；v3：含外部 provider 下的四层进程树；v4：含被 launchd 收养的带标记后代） → ⑤ `XCTMetric` 性能基准 + 沙盒 `HOME` 零污染快照审计。五层之外另有依赖方向边界测试，断言核心不引用任何 provider 包。
 
 ---
 
@@ -279,3 +279,21 @@ flowchart LR
 - `02` §3.1.4 表中「留给 M0 确认」的各项，都是未经本机实测的前提。
 - `02` §3.1.1 的接口草案代码段仍是最初的写法，只用文字说明了要改的地方。
 - 五份文档之间的重复内容。同一组数字在多处出现，后续修改时以本文件为准。
+
+### v4（2026-11-27）崩溃兜底改为每个 Agent 一个看守进程
+
+起因是补查 Orca 源码时发现，v2 审计漏了它的主程序崩溃兜底机制。v3 的版本保留在 git 提交 `c23f866`。
+
+| 主题 | 变更 | 详见 |
+| :--- | :--- | :--- |
+| 证据 | 新增 Orca `orca-provider-exec` 的查证；更正审计中两处关于进程清理的不完整表述 | `01` §7.7、§5、§7.3 |
+| Reaper 形态 | 由「全局一个、主 App 登记进程组」改为「每个 Agent 一层启动器加看守进程」，靠管道 EOF 发现主 App 死亡 | `02` §3.3.3 第 3 点 |
+| 后代清理 | 由「主 App 周期性抓快照再登记」改为继承式进程树标记 `SHEPHERD_PROVIDER_TREE`；主 App 内的快照只用于展示与诊断 | `02` §3.3.3 第 4 点 |
+| 零注入原则 | 新增一个例外：向 Agent 环境加入一个不透明的标记变量，列为已声明的写入 | `02` §3.1.4；`03` §5.3 |
+| 验收与测试 | 进程清理验收由三个场景改为四个；L4 测试加入被 launchd 收养的后代与一个预期漏掉的对照 | `03` §5.3；`04` §3、§4 |
+
+**未处理、留待后续**：
+
+- Orca 的实现只读了注释与关键结构，没有运行验证。
+- `claude`、`codex` 是否会清洗子进程环境、启动器是否原样传递信号与退出码，都留给 M0 实测（`02` §3.3.3）。
+
