@@ -11,8 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <style>
 body{margin:0}
-.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--input:#dddddd;--ov:rgba(0,0,0,0.05);--link:#0075de;--selBg:rgba(0,117,222,0.10);--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);--win:rgba(246,245,244,0.86);--dim:rgba(0,0,0,0.16);color-scheme:light}
-.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--input:#4a4744;--ov:rgba(255,255,255,0.08);--link:#62aef0;--selBg:rgba(0,117,222,0.26);--glass:rgba(44,43,41,0.6);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);--win:rgba(25,24,23,0.9);--dim:rgba(0,0,0,0.4);color-scheme:dark}
+.th{--canvas:#f6f5f4;--surface:#ffffff;--ink:rgba(0,0,0,0.95);--ink2:#31302e;--muted:#615d59;--faint:#a39e98;--hair:#e6e6e6;--input:#dddddd;--ov:rgba(0,0,0,0.05);--link:#0075de;--selBg:rgba(0,117,222,0.10);--glass:rgba(255,255,255,0.58);--glassEdge:rgba(255,255,255,0.72);--glassHi:rgba(255,255,255,0.9);--win:rgba(246,245,244,0.86);--dim:rgba(0,0,0,0.16);--warnInk:#793400;--warnBg:rgba(221,91,0,0.12);color-scheme:light}
+.th.dk{--canvas:#191817;--surface:#252422;--ink:rgba(255,255,255,0.92);--ink2:#dcd8d3;--muted:#a39e98;--faint:#7d7873;--hair:#3a3836;--input:#4a4744;--ov:rgba(255,255,255,0.08);--link:#62aef0;--selBg:rgba(0,117,222,0.26);--glass:rgba(44,43,41,0.6);--glassEdge:rgba(255,255,255,0.12);--glassHi:rgba(255,255,255,0.12);--win:rgba(25,24,23,0.9);--dim:rgba(0,0,0,0.4);--warnInk:#f2a464;--warnBg:rgba(221,91,0,0.2);color-scheme:dark}
 *{box-sizing:border-box}
 a{color:var(--link)}a:hover{color:var(--link)}
 button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;text-align:inherit}
@@ -110,7 +110,7 @@ input{font:inherit;color:inherit}
 <span style="font-size:15px;font-weight:500">默认中继</span>
 <span class="mono" style="font-size:13px;color:var(--muted)">relay.shepherd.inorbit.top</span>
 </span>
-<sc-if value="{{relayDefault}}" hint-placeholder-val="{{true}}"><span style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)"><span class="dot" style="background:#1aae39"></span>已连接</span></sc-if>
+<sc-if value="{{relayDefault}}" hint-placeholder-val="{{true}}"><span style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:{{relayInk}}"><span class="dot" style="background:{{relayDot}}"></span>{{relayStatus}}</span></sc-if>
 </label>
 <div class="row" style="align-items:flex-start">
 <input id="relay-custom" type="radio" name="relay" checked="{{relayCustom}}" onChange="{{pickCustom}}" style="accent-color:#0075de;width:16px;height:16px;margin:3px 0 0">
@@ -172,11 +172,22 @@ input{font:inherit;color:inherit}
 <div role="status" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--ov);font-size:14px;line-height:1.43"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="margin-top:2px;color:#dd5b00"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4.5M12 17.2v.3"></path></svg><span>已拒绝刚才的绑定请求，旧二维码已作废。请让你自己的设备重新扫描。</span></div>
 </sc-if>
 <div style="display:flex;gap:20px;align-items:center">
-<div style="width:216px;height:216px;border-radius:16px;background:#ffffff;border:1px solid #e6e6e6;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-<svg role="img" aria-label="绑定二维码（示意）" viewBox="-2 -2 29 29" width="188" height="188" style="shape-rendering:crispEdges"><path d="{{qrPath}}" fill="#000000"></path></svg>
+<div style="width:216px;height:216px;border-radius:16px;background:#ffffff;border:1px solid #e6e6e6;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden">
+<svg role="img" aria-label="{{qrLabel}}" viewBox="-2 -2 29 29" width="188" height="188" style="shape-rendering:crispEdges;opacity:{{qrOpacity}};filter:{{qrFilter}}"><path d="{{qrPath}}" fill="#000000"></path></svg>
+<sc-if value="{{expired}}" hint-placeholder-val="{{false}}">
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(0,0,0,0.95)">
+<span style="font-size:16px;font-weight:600">二维码已过期</span>
+<button onClick="{{refresh}}" style="height:32px;padding:0 14px;border-radius:9999px;background:#0075de;color:#ffffff;font-size:14px;font-weight:500">生成新的二维码</button>
+</div>
+</sc-if>
 </div>
 <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<sc-if value="{{notExpired}}" hint-placeholder-val="{{true}}">
 <div style="display:flex;align-items:center;gap:8px;font-size:15px"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="color:var(--muted)"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span>{{expiry}} 后过期</span><button onClick="{{refresh}}" style="color:var(--link);font-size:15px;font-weight:500">刷新</button></div>
+</sc-if>
+<sc-if value="{{expired}}" hint-placeholder-val="{{false}}">
+<div role="status" style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--warnInk)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>已过期，有效期内没有设备扫描</div>
+</sc-if>
 <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:6px;font-size:14px;line-height:1.43">
 <dt style="color:var(--muted)">中继</dt><dd class="mono" style="margin:0;font-size:13px">relay.shepherd.inorbit.top</dd>
 <dt style="color:var(--muted)">这台 Mac</dt><dd style="margin:0">July 的 MacBook Pro</dd>
@@ -185,7 +196,10 @@ input{font:inherit;color:inherit}
 </div>
 </div>
 <div style="display:flex;align-items:center;gap:8px;padding-top:4px">
+<sc-if value="{{notExpired}}" hint-placeholder-val="{{true}}">
 <button onClick="{{simulateScan}}" class="proto">原型：模拟手机已扫码</button>
+<button onClick="{{simulateExpire}}" class="proto">原型：模拟过期</button>
+</sc-if>
 <span style="flex:1"></span>
 <button onClick="{{closeSheet}}" class="btn-u" style="height:36px">取消</button>
 </div>
@@ -228,16 +242,43 @@ input{font:inherit;color:inherit}
 </div>
 </sc-if>
 
+<sc-if value="{{stepRelayDown}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:16px">
+<span aria-hidden="true" style="width:48px;height:48px;border-radius:12px;background:var(--warnBg);color:var(--warnInk);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" viewBox="0 0 24 24" width="26" height="26"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.3 4.6 4.6 0 0 0 7 18.5z"></path><path d="M3.5 3.5l17 17"></path></svg></span>
+<div style="display:flex;flex-direction:column;gap:6px">
+<h2 id="pair-title" style="margin:0;font-size:20px;line-height:1.4;font-weight:600;letter-spacing:-0.125px">连不上中继，无法生成二维码</h2>
+<p style="margin:0;font-size:15px;line-height:1.5;color:var(--ink2)">二维码要先在中继上登记才能用。请检查这台 Mac 的网络；用自建中继时，确认地址正确、服务在运行。</p>
+</div>
+<dl style="margin:0;padding:12px 14px;border-radius:12px;background:var(--canvas);display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:6px;font-size:14px;line-height:1.43">
+<dt style="color:var(--muted)">中继</dt><dd class="mono" style="margin:0;font-size:13px">relay.shepherd.inorbit.top</dd>
+<dt style="color:var(--muted)">结果</dt><dd style="margin:0">连接超时 · 刚刚</dd>
+</dl>
+<p class="cap" style="margin:0">已绑定的设备不受影响，中继恢复后会自动重连。</p>
+<div style="display:flex;align-items:center;gap:8px;padding-top:4px">
+<span style="flex:1"></span>
+<button onClick="{{closeSheet}}" class="btn-u" style="height:36px">取消</button>
+<button onClick="{{retryRelay}}" class="glass-tint btn-p">重试</button>
+</div>
+</div>
+</sc-if>
+
 </div>
 </sc-if>
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"sheet":{"editor":"enum","options":["无","二维码","核对验证码","已绑定"],"default":"无","section":"原型"},"appearance":{"editor":"enum","options":["浅色","深色"],"default":"浅色","section":"外观"},"$preview":{"width":1440,"height":900}}'>
+<script type="text/x-dc" data-dc-script data-props='{"sheet":{"editor":"enum","options":["无","二维码","核对验证码","已绑定","二维码已过期","已拒绝","连不上中继"],"default":"无","section":"原型"},"appearance":{"editor":"enum","options":["浅色","深色"],"default":"浅色","section":"外观"},"$preview":{"width":1440,"height":900}}'>
 class Component extends DCLogic {
+  static fromProp(v) {
+    const base = { sheet: v ?? '无', rejected: false, expired: false, relayDown: false };
+    if (v === '二维码已过期') return { ...base, sheet: '二维码', expired: true };
+    if (v === '已拒绝') return { ...base, sheet: '二维码', rejected: true };
+    if (v === '连不上中继') return { ...base, relayDown: true };
+    return base;
+  }
+
   state = {
-    sheet: this.props.sheet ?? '无',
-    rejected: false,
+    ...Component.fromProp(this.props.sheet),
     seed: 7,
     expiry: '4:52',
     relay: 'default',
@@ -250,7 +291,7 @@ class Component extends DCLogic {
   };
 
   componentDidUpdate(prevProps) {
-    if (prevProps.sheet !== this.props.sheet) this.setState({ sheet: this.props.sheet ?? '无', rejected: false });
+    if (prevProps.sheet !== this.props.sheet) this.setState(Component.fromProp(this.props.sheet));
   }
 
   qrPath(seed) {
@@ -289,13 +330,24 @@ class Component extends DCLogic {
     const target = s.devices.find((d) => d.id === s.unbindId);
     return {
       themeClass, devices, noDevices: devices.length === 0,
-      startPairing: () => set({ sheet: '二维码', rejected: false, seed: s.seed + 1, expiry: '5:00' }),
+      startPairing: () => set(s.relayDown
+        ? { sheet: '连不上中继' }
+        : { sheet: '二维码', rejected: false, expired: false, seed: s.seed + 1, expiry: '5:00' }),
       showSheet: s.sheet !== '无',
       stepQR: s.sheet === '二维码', stepVerify: s.sheet === '核对验证码', stepDone: s.sheet === '已绑定',
+      stepRelayDown: s.sheet === '连不上中继',
       qrPath: this.qrPath(s.seed), expiry: s.expiry, rejected: s.rejected,
-      refresh: () => set({ seed: s.seed + 1, expiry: '5:00', rejected: false }),
+      expired: s.expired, notExpired: !s.expired,
+      qrOpacity: s.expired ? '0.12' : '1', qrFilter: s.expired ? 'blur(3px)' : 'none',
+      qrLabel: s.expired ? '已过期的绑定二维码（示意）' : '绑定二维码（示意）',
+      refresh: () => set({ seed: s.seed + 1, expiry: '5:00', rejected: false, expired: false }),
       simulateScan: () => set({ sheet: '核对验证码' }),
-      closeSheet: () => set({ sheet: '无', rejected: false }),
+      simulateExpire: () => set({ expired: true, rejected: false }),
+      retryRelay: () => set({ relayDown: false, sheet: '二维码', rejected: false, expired: false, seed: s.seed + 1, expiry: '5:00' }),
+      relayStatus: s.relayDown ? '连不上' : '已连接',
+      relayDot: s.relayDown ? '#dd5b00' : '#1aae39',
+      relayInk: s.relayDown ? 'var(--warnInk)' : 'var(--muted)',
+      closeSheet: () => set({ sheet: '无', rejected: false, expired: false }),
       reject: () => set({ sheet: '二维码', rejected: true, seed: s.seed + 1, expiry: '5:00' }),
       confirm: () => set({ sheet: '已绑定' }),
       finish: () => set({

@@ -24,6 +24,7 @@ UI 与交互的原型和设计稿，依据 `docs/` 中的方案计划书（重�
 | Mac | `MainDark.dc.html` | 主窗口深色 |
 | Mac | `MacSettings.dc.html` | 设置 › 设备可交互原型：已绑定设备与解绑、绑定新设备 Sheet（二维码 → 核对验证码 → 完成）、中继选择、这台 Mac 的密钥指纹 |
 | Mac | `MacPairingQR.dc.html` / `MacPairingVerify.dc.html` | 绑定 Sheet 的两个步骤：二维码、核对 6 位验证码 |
+| Mac | `MacPairingExpired.dc.html` / `MacPairingRejected.dc.html` / `MacPairingRelayDown.dc.html` | 绑定异常：二维码过期、选了「不是这台设备」、连不上中继 |
 | iPad | `iPadWorkspace.dc.html` / `iPadWorkspaceDark.dc.html` | 三栏工作区可交互原型（浅色 / 深色） |
 | iPad | `iPadReview.dc.html` | 竖屏审查 Diff 与创建 PR（深色） |
 | iPad | `iPadPairing.dc.html` | 未绑定首页 |
@@ -32,6 +33,7 @@ UI 与交互的原型和设计稿，依据 `docs/` 中的方案计划书（重�
 | iPhone | `iPhoneLockScreen.dc.html` | 锁屏通知与实时活动 |
 | iPhone | `iPhonePairing.dc.html` | 绑定 Mac 可交互原型：未绑定 → 扫码 → 核对验证码 → 已连接；Tweaks 可切换步骤 |
 | iPhone | `iPhonePairingScan.dc.html` / `iPhonePairingVerify.dc.html` / `iPhonePairingSettings.dc.html` | 扫描二维码、核对验证码、设置 › 已连接的 Mac（含解绑和通知开关） |
+| iPhone | `iPhonePairingDenied.dc.html` / `iPhonePairingExpired.dc.html` / `iPhonePairingRelayDown.dc.html` / `iPhonePairingRejected.dc.html` / `iPhonePairingRevoked.dc.html` | 绑定异常：相机权限被拒、扫到过期的二维码、连不上中继、Mac 没有确认、已被 Mac 解绑。iPad 与 iPhone Duo 用同一套状态 |
 | iPhone Duo | `DuoOuter.dc.html` | 外屏（合上） |
 | iPhone Duo | `DuoInner.dc.html` | 内屏（展开，深色） |
 | iPhone Duo | `DuoHalfOpen.dc.html` | 半开书本姿态：左对话、右 Diff |
@@ -41,6 +43,6 @@ UI 与交互的原型和设计稿，依据 `docs/` 中的方案计划书（重�
 
 ## 待补
 
-- **绑定流程只画了正常路径**：二维码过期、验证码不一致、中继连不上、相机权限被拒的界面还没有单独画。方案见 `docs/02-architecture.md` §3.5。
+- **绑定后的连接状态没有画**：Mac 睡眠或离线、中继中断后自动重连时，手机上怎么显示，还没有单独画。邀请令牌的时限和尝试次数上限未定（`docs/02-architecture.md` §3.5.7）。
 - **设计系统没有红色与深色主题**：「出错」暂用 accent-pink，深色值为提议值。
 - **系统版本**：最低 macOS 27、iOS / iPadOS 27，直接使用 Liquid Glass，没有回退样式。

@@ -37,7 +37,15 @@
     "iPhonePairingVerify.dc.html": {"x": 964, "y": 994, "w": 402, "h": 874, "title": "iPhone · 核对验证码", "page": "iphone", "is_interactive": true, "radius": 55},
     "iPhonePairingSettings.dc.html": {"x": 1446, "y": 994, "w": 402, "h": 874, "title": "iPhone · 设置 › 已连接的 Mac", "page": "iphone", "is_interactive": true, "radius": 55},
     "DuoPairing.dc.html": {"x": 1577, "y": 789, "w": 466, "h": 678, "title": "iPhone Duo · 外屏未绑定", "page": "duo", "guides": [{"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
-    "Foundations.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 3080, "title": "设计规范 · Liquid Glass × Notion Analysis", "page": "spec"}
+    "Foundations.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 3080, "title": "设计规范 · Liquid Glass × Notion Analysis", "page": "spec"},
+    "MacPairingExpired.dc.html": {"x": 0, "y": 3060, "w": 1440, "h": 900, "title": "Mac · 绑定异常：二维码已过期", "page": "mac", "is_interactive": true},
+    "MacPairingRejected.dc.html": {"x": 1520, "y": 3060, "w": 1440, "h": 900, "title": "Mac · 绑定异常：选了「不是这台设备」", "page": "mac", "is_interactive": true},
+    "MacPairingRelayDown.dc.html": {"x": 3040, "y": 3060, "w": 1440, "h": 900, "title": "Mac · 绑定异常：连不上中继", "page": "mac", "is_interactive": true},
+    "iPhonePairingDenied.dc.html": {"x": 0, "y": 1988, "w": 402, "h": 874, "title": "iPhone · 相机权限被拒", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhonePairingExpired.dc.html": {"x": 482, "y": 1988, "w": 402, "h": 874, "title": "iPhone · 扫到过期的二维码", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhonePairingRelayDown.dc.html": {"x": 964, "y": 1988, "w": 402, "h": 874, "title": "iPhone · 连不上中继", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhonePairingRejected.dc.html": {"x": 1446, "y": 1988, "w": 402, "h": 874, "title": "iPhone · Mac 没有确认", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhonePairingRevoked.dc.html": {"x": 1928, "y": 1988, "w": 402, "h": 874, "title": "iPhone · 已被 Mac 解绑", "page": "iphone", "is_interactive": true, "radius": 55}
   },
   "order": [
     "Main.dc.html",
@@ -65,6 +73,14 @@
     "iPhonePairingScan.dc.html",
     "iPhonePairingVerify.dc.html",
     "iPhonePairingSettings.dc.html",
+    "MacPairingExpired.dc.html",
+    "MacPairingRejected.dc.html",
+    "MacPairingRelayDown.dc.html",
+    "iPhonePairingDenied.dc.html",
+    "iPhonePairingExpired.dc.html",
+    "iPhonePairingRelayDown.dc.html",
+    "iPhonePairingRejected.dc.html",
+    "iPhonePairingRevoked.dc.html",
     "DuoPairing.dc.html",
     "Foundations.dc.html"
   ],
@@ -78,7 +94,9 @@
     "duoTitle": {"x": 0, "y": -300, "text": "iPhone Duo · iOS 27.2 折叠屏适配", "kind": "title1", "maxW": 2528, "page": "duo"},
     "duoNote": {"x": 0, "y": 789, "w": 440, "text": "依据 Apple HIG「Designing for iPhone Duo」（2026-09-09），并在 iPhone Duo 模拟器（iOS 27.2）上核对：\n\n1. 竖向控件：外屏，以及内屏横向时，工具栏、标签栏、导航按钮都移到侧边，与摄像头同侧。从上到下依次是灵动岛（摄像头）、状态栏、工具栏、标签栏。内屏竖向时保留水平栏。\n\n2. 工具栏顺序：最上是返回或关闭，接着是主要操作，其余项保持原分组。Shepherd 外屏：「新任务」在状态下方，图标式标签栏和搜索贴近底部。半开时：返回、创建 PR 在上，视图切换和 Cursor 随后。\n\n3. 控件靠近它影响的内容：内屏侧栏的筛选留在侧栏顶部，对话和 Diff 的操作进右侧竖条。\n\n4. 分屏多任务：两个 App 各自把控件放在靠外的一侧，左边的 Shepherd 在左。\n\n5. Split view：外屏收成单栏，内屏展开；完全展开时前导栏较窄，半折时两栏等宽，内容避开折叠区。\n\n6. 布局只看尺寸类，不写固定宽度；合上与展开时会话、滚动位置、草稿、审批卡都保持，只做小幅调整。\n\n7. 代码侧见 app-resizability：verticalBarEdge / toolbarVerticalEdge、ReservedRegion、启动屏（否则 ITMS-90870）、UIRequiresFullScreen 在 iOS 27 被忽略。\n\n8. 未绑定（右侧「外屏未绑定」）：没有工具栏和标签栏，竖条里只剩摄像头和状态栏；唯一的「扫描二维码」放在内容底部，绑定流程与 iPhone 相同。\n\n橙色色带是竖条的示意宽度，中线橙线是折痕示意。", "fill": "blue", "page": "duo"},
     "pairingMacNote": {"x": 4560, "y": 2040, "w": 420, "text": "绑定设备（docs/02 §3.5.3）\n\n入口在「设置 › 设备」（⌘,），不在主窗口工具栏放设置按钮（HIG Settings）。\n\n流程：绑定新设备… → 二维码（一次性、会过期） → 手机扫码后核对 6 位验证码 → 确认绑定。两边数字一致才确认，防止二维码被他人抢先扫描。\n\nSheet 只放「取消」与当前一步的主要操作，不同时出现取消、完成、返回三个按钮（HIG Sheets）。\n\n原型里点「绑定新设备…」可以走完整个流程；虚线框的「模拟手机已扫码」只用于演示，不是产品界面。也可以在右侧 Tweaks 直接切换 Sheet 的步骤。", "page": "mac"},
-    "pairingPhoneNote": {"x": 1928, "y": 994, "w": 380, "text": "未绑定时不显示标签栏，首页只有一个「扫描二维码」按钮。第一次点它时才弹出系统的相机权限请求（HIG Privacy：在用到功能时再请求）。\n\n相机权限说明文案：「Shepherd 用相机扫描 Mac 上显示的绑定二维码。」\n\n原型里虚线框标出的「模拟识别」「模拟 Mac 已确认」只用于演示，不是产品界面。", "page": "iphone"}
+    "pairingPhoneNote": {"x": 1928, "y": 994, "w": 380, "text": "未绑定时不显示标签栏，首页只有一个「扫描二维码」按钮。第一次点它时才弹出系统的相机权限请求（HIG Privacy：在用到功能时再请求）。\n\n相机权限说明文案：「Shepherd 用相机扫描 Mac 上显示的绑定二维码。」\n\n原型里虚线框标出的「模拟识别」「模拟 Mac 已确认」只用于演示，不是产品界面。", "page": "iphone"},
+    "pairingMacErrNote": {"x": 4560, "y": 3060, "w": 420, "text": "绑定的异常状态\n\n依据 HIG「Alerts」与「Feedback」：能在原处说明的问题不弹警告框，直接在 Sheet 里说清发生了什么、为什么、下一步做什么。\n\n· 二维码过期：二维码变淡，原位给出「生成新的二维码」。邀请令牌一次性，有过期时间和尝试次数上限（docs/02 §3.5.4），具体时限未定。\n· 选了「不是这台设备」：旧二维码作废，立刻换一张新的，顶部说明原因。\n· 连不上中继：二维码要先在中继上登记，失败时说明原因并提供「重试」；设置里的中继状态同步显示「连不上」。已绑定的设备不受影响。\n\n原型里可点虚线框的「模拟过期」；连不上中继在 Tweaks 里切换。", "page": "mac"},
+    "pairingPhoneErrNote": {"x": 2410, "y": 1988, "w": 380, "text": "手机端的异常状态（iPad 与 iPhone Duo 用同一套状态和文案）\n\n· 相机权限被拒：系统只问一次，之后说明用途，引导到「设置 › Shepherd › 相机」（HIG Privacy）。\n· 扫到过期的二维码：取景框上方提示，继续扫描，不打断（HIG Feedback）。扫到不是 Shepherd 的二维码时，同一位置提示「这不是 Shepherd 的绑定二维码」。\n· 连不上中继：说明是哪一个中继，提供「重试」。\n· Mac 没有确认：说明这台设备没有获得任何访问权限，提供「重新扫描」。\n· 已被 Mac 解绑：续连令牌被拒时，用整页说明，不在启动时弹警告框（HIG Alerts），清除缓存后回到未绑定首页。\n\n原型里核对页可点「模拟 Mac 拒绝」，扫码页可点「扫到过期的」。", "page": "iphone"}
   },
   "designSystems": [
     {"title": "Notion Analysis", "namespace": "notionanalysis", "artifact": "https://claude.ai/code/artifact/3cb0cd3a-7c91-4d34-ae95-f318d715d86c", "version": "1795699149-8d64", "copiedAt": "2026-11-26T14:00:00Z"}
