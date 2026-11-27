@@ -2,9 +2,9 @@
 
 > **文档角色**：Shepherd 方案计划书 — 工程落地与路线图篇（`docs/04-roadmap-and-engineering.md`）  
 > **关联文档**：上游代码审计 [`docs/01-orca-audit.md`](./01-orca-audit.md) · 系统架构 [`docs/02-architecture.md`](./02-architecture.md) · 产品与 UX 规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md)  
-> **已锁定基线**：**MIT License** · **macOS 15.0+ / 仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · **100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱**（零 Electron、零 Node 24 Sidecar、零闭源商业 SDK）。  
+> **已锁定基线**：**MIT License** · **macOS 27.0+ / 仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · **100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱**（零 Electron、零 Node 24 Sidecar、零闭源商业 SDK）。  
 > **范围说明**：本路线图覆盖 **M0–M4** 完整工程交付；多模型本地路由与额度容灾网关（如 Magpie 类能力）**显式排除在 M0–M4 规划之外**，仅在文末远期演进中说明扩展边界。  
-> **修订状态**：修订版 v3（2026-11-26）。v2：M0 增加验证项，风险登记册新增 R10–R14。v3：Claude Code 接入已对齐（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划，全部排期内容移除，风险登记册新增 R15–R16。v4（2026-11-27）：`ShepherdReaper` 改为每个 Agent 一层的启动器与看守进程，加进程树标记（`02` §3.3.3），相应更新目录注释、M0 任务与验收、L4 测试。本轮只修订文档，仓库中尚无代码，下面的目录结构是规划。
+> **修订状态**：修订版 v3（2026-11-26）。v2：M0 增加验证项，风险登记册新增 R10–R14。v3：Claude Code 接入已对齐（[`docs/02-architecture.md`](./02-architecture.md) §3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划，全部排期内容移除，风险登记册新增 R15–R16。v4（2026-11-27）：`ShepherdReaper` 改为每个 Agent 一层的启动器与看守进程，加进程树标记（`02` §3.3.3），相应更新目录注释、M0 任务与验收、L4 测试。本轮只修订文档，仓库中尚无代码，下面的目录结构是规划。v5（2026-11-27）：仓库已初始化为 monorepo，顶层结构改为 workspace 加 `Apps/` 两个项目，新增 `Server/`；最低系统升到 27；Bundle ID 定稿；新增 R17–R19。各包内部的子目录仍是规划，现有代码只是可构建的空壳。
 
 ---
 
@@ -19,29 +19,27 @@ Shepherd/
 ├── README.md
 ├── LICENSE                                  # MIT License
 ├── THIRD_PARTY_NOTICES.md                   # 上游合规与三方依赖声明（含 Lovecast Inc. MIT 及依赖库）
-├── Package.swift                            # 根 SwiftPM Workspace（聚合全部无头核心库与测试，支持纯 CLI swift test）
-├── Shepherd.xcodeproj/                      # macOS App Target（签名、Entitlements、Assets、Sparkle 嵌入、Reaper 拷贝）
-│   └── project.pbxproj
+├── Shepherd.xcworkspace/                     # 唯一入口：两个 App 项目 + 全部本地包
+├── Config/
+│   ├── Shared.xcconfig                      # Bundle ID 规则、版本号、最低系统、Swift 版本，两个项目共用
+│   └── Local.xcconfig.example               # 本机签名团队等设置的模板（Local.xcconfig 不进仓库）
 │
-├── App/                                     # 【App】极薄 macOS 应用入口与系统集成层
-│   ├── ShepherdApp.swift                    # @main 入口、WindowGroup、MenuBarExtra、Settings Scene
-│   ├── AppDelegate.swift                    # NSApplicationDelegate、优雅退出进程组回收、Notification 点击路由
-│   ├── AppEnvironment.swift                 # 生产级依赖装配容器（连接 Storage / Git / Core，并注册各 provider 包）
-│   ├── DeepLinkRouter.swift                 # 通知/URL Scheme/命令面板深链接路由（worktree_id + approval_id）
-│   ├── Entitlements/
-│   │   ├── Shepherd.entitlements            # Hardened Runtime 最小权限（app-sandbox=false, network.client=true）
-│   │   └── ShepherdReaper.entitlements      # Helper 极简权限
-│   └── Resources/
-│       ├── Assets.xcassets                  # 原生 App Icon、单色模板 MenuBar 图标（严禁复用 Orca 资产）
-│       └── Info.plist                       # CFBundleIdentifier (M0-M1 占位 io.github.julytang.shepherd，公测前定稿)、Sparkle 2、LSMinimumSystemVersion=15.0
+├── Apps/
+│   ├── macOS/
+│   │   ├── macOS.xcodeproj/                 # target：macOS、Reaper、macOSTests、macOSUITests（产品名 Shepherd）
+│   │   ├── Shepherd/                        # App 源码：@main 入口、WindowGroup、MenuBarExtra、依赖装配
+│   │   ├── Reaper/                          # shepherd-reaper 源码，构建后嵌入 Shepherd.app/Contents/Helpers/
+│   │   ├── macOSTests/
+│   │   └── macOSUITests/
+│   └── iOS/
+│       ├── iOS.xcodeproj/                   # target：iOS、iOSTests、iOSUITests（产品名 Shepherd；iPhone、iPad、iPhone Duo 共用）
+│       ├── Shepherd/                        # Companion 源码
+│       ├── iOSTests/
+│       └── iOSUITests/
 │
-├── Helpers/
-│   └── ShepherdReaper/                      # 【Reaper】每个 Agent 一层的启动器与看守进程（打入 Contents/Helpers/）
-│       ├── Package.swift                    # 纯 Darwin/C-Swift 可执行目标（零三方依赖，产物体积 < 200 KB）
-│       └── Sources/
-│           └── main.swift                   # 新建会话 + 派生看守进程 + exec 目标 CLI；管道 EOF 视为主 App 已死；按进程树标记清场
+├── Server/                                  # 【Server】Node：中继（relay）与推送网关（push），外层协议见 PROTOCOL.md
 │
-├── Packages/
+├── Packages/                                # 10 个独立 Swift 包。下列 8 个之外，v5 新增两端通用的 ShepherdModels 与 ShepherdRemote
 │   ├── ShepherdCore/                        # 【Core】领域模型、状态机编排、审批门控与环境管道（纯 Swift 6）
 │   │   ├── Sources/ShepherdCore/
 │   │   │   ├── Models/                      # Repository, Worktree, AgentSession, Turn, TranscriptItem, ApprovalPayload
@@ -175,14 +173,16 @@ flowchart BT
 
 ### 2.1 编译基线、目标架构与立项锁定策略
 
-- **最低支持系统**：**macOS 15.0 (Sequoia)**。
+- **最低支持系统**：**macOS 27.0**；Companion 为 **iOS / iPadOS 27.0**。
+- **项目文件格式**：两个 App 项目使用 Xcode 27.2 默认的 JSON 项目文件（`project.xcproj`），需要 Xcode 27 或更高版本打开。
   - **决策依据**：完整原生支持稳定的 `@Observable`、`MenuBarExtra` 窗口增强、成熟版 TextKit 2（`NSTextLayoutManager` 规避 macOS 13/14 早期布局崩溃 Bug）、以及 Xcode 16+ / Swift 6 工具链；全面覆盖主力 Apple Silicon 开发者机型。
 - **目标架构（已锁定）**：**仅 Apple Silicon (`arm64`)**，明确不支持 Intel Mac，不构建 Universal Binary。
   - **工程收益**：单一 `arm64` 构建、签名与分发产线预计可将签名 `.dmg` 体积控制在 **12–18 MB**（估算，未实测；低于 ≤ 25 MB 红线），省去交叉编译校验矩阵，并大幅简化 `ShepherdReaper`、依赖库及 Sparkle 2 `appcast.xml` 维护。
 - **开源协议（已锁定）**：**MIT License**（根目录 `LICENSE` + `THIRD_PARTY_NOTICES.md` + `About -> Licenses` 同步维护）。
 - **Bundle ID 与签名节奏（已锁定）**：
-  - **开发期（M0–M1）**：采用临时占位 Bundle ID（如 `io.github.julytang.shepherd`）+ 本地 ad-hoc 签名进行高速迭代，不阻塞早期核心功能开发；
-  - **公证演练与公测前（M4 前定稿）**：在首次对外公测（M4）或正式公证演练前最终定稿正式 Bundle ID 与 Developer ID Application 签名主体，再切入正式 `notarytool` / Sparkle 2 发版链路。
+  - **Bundle ID（v5 已定稿）**：Mac 与 iOS 共用 `top.inorbit.shepherd`。Debug 构建为 `top.inorbit.shepherd.dev`，可与正式版并存。Reaper、测试与扩展在 App 的 ID 后加 `.reaper`、`.tests`、`.uitests`、`.widgets`。规则集中在 `Config/Shared.xcconfig`。
+  - **开发期（M0–M1）**：本地 ad-hoc 签名进行高速迭代，不阻塞早期核心功能开发；
+  - **公证演练与公测前（M4 前定稿）**：在首次对外公测（M4）或正式公证演练前最终定稿 Developer ID Application 签名主体，再切入正式 `notarytool` / Sparkle 2 发版链路。
 - **并发与语言模式**：全部 `Packages/*` 强制开启 **`Swift 6` language mode（`-strict-concurrency=complete`）** 与 `-warnings-as-errors`（Release CI），在编译期彻底根除跨 Actor 数据竞争，防止 5 路高吞吐 Agent 并发时出现偶发崩溃。
 
 ### 2.2 Direct Distribution 签名、公证与 Sparkle 2 自动更新流水线
@@ -215,9 +215,9 @@ flowchart BT
 
 | 工作流 | 触发条件 | 运行环境 | 关键检查项 |
 | :--- | :--- | :--- | :--- |
-| **`ci.yml`（PR 门禁）** | Pull Request / Push `main` | `macos-15` (Apple Silicon) | 1. `Scripts/check-compliance.sh`（合规红线：禁闭源 SDK、禁 `ORCA_` 标识、校验 `Entitlements` 白名单）；<br>2. `swift test --parallel`（覆盖 Core / 各 provider 的 Golden-file / Git 临时仓 / Storage WAL / 依赖方向边界测试）；<br>3. `ShepherdReaper` 独立构建 + 进程组回收测试；<br>4. `xcodebuild build` 验证主 App 编译零警告。 |
-| **`nightly.yml`（夜间回归）** | 每日定时 | `macos-15` | 1. 运行 `EndToEndTests`（FakeAgentHarness 5 路并发 5 分钟压测）；<br>2. 运行 `PerformanceBenchmarks` 追踪冷启动、内存与大 Diff 回归趋势；<br>3. 用当前 `codex app-server generate-json-schema` 的输出与仓库内快照比对，发现协议漂移即告警（v2 新增）。 |
-| **`release.yml`（版本发布）** | 推送 `v*.*.*` Tag | `macos-15` | 执行完整签名 → Notarization → Stapling → Sparkle `appcast.xml` 更新 → 创建 GitHub Release 并附校验和。 |
+| **`ci.yml`（PR 门禁）** | Pull Request / Push `main` | `macos-27` (Apple Silicon) | 1. `Scripts/check-compliance.sh`（合规红线：禁闭源 SDK、禁 `ORCA_` 标识、校验 `Entitlements` 白名单）；<br>2. `swift test --parallel`（覆盖 Core / 各 provider 的 Golden-file / Git 临时仓 / Storage WAL / 依赖方向边界测试）；<br>3. `ShepherdReaper` 独立构建 + 进程组回收测试；<br>4. `xcodebuild build` 验证主 App 编译零警告。 |
+| **`nightly.yml`（夜间回归）** | 每日定时 | `macos-27` | 1. 运行 `EndToEndTests`（FakeAgentHarness 5 路并发 5 分钟压测）；<br>2. 运行 `PerformanceBenchmarks` 追踪冷启动、内存与大 Diff 回归趋势；<br>3. 用当前 `codex app-server generate-json-schema` 的输出与仓库内快照比对，发现协议漂移即告警（v2 新增）。 |
+| **`release.yml`（版本发布）** | 推送 `v*.*.*` Tag | `macos-27` | 执行完整签名 → Notarization → Stapling → Sparkle `appcast.xml` 更新 → 创建 GitHub Release 并附校验和。 |
 
 ---
 
@@ -305,12 +305,12 @@ flowchart LR
 ### M4：正式标识定稿、签名公证与 Public Beta 发布
 - **核心目标**：定稿正式 Bundle ID 与签名主体，打通单一 `arm64` 全自动 Direct Distribution 生产发版链路，完成 MIT 合规审查与首批开发者灰度验证。
 - **关键任务拆解**：
-  1. **正式身份与签名定稿**：将 M0–M1 临时占位 Bundle ID（如 `io.github.julytang.shepherd`）与本地 ad-hoc 签名替换为最终定稿的正式 Bundle ID 与 Developer ID Application 签名主体；
+  1. **正式身份与签名定稿**：将 M0–M1 Bundle ID `top.inorbit.shepherd`（v5 已定稿，Debug 构建加 `.dev`）与本地 ad-hoc 签名替换为最终定稿的 Developer ID Application 签名主体；
   2. 跑通单一 `arm64` `release.yml`（由内向外 Developer ID 签名 + `.app`/`.dmg` 双载体 `notarytool` 公证装订 + Sparkle 2 EdDSA `appcast.xml` + Homebrew Cask）；
   3. 合规终检：审阅 MIT `LICENSE`、`THIRD_PARTY_NOTICES.md`、`About -> Licenses` 界面、零 `ORCA_*` / 零遥测网络抓包确认；对照 Anthropic 合规页确认各条 Claude 路径在订阅登录下的使用边界，并复查 `claude -p` 用量政策是否有变（v2 新增，见 §5 R2、R10）；
   4. 灰度发布：面向 20–50 名高频双持 Claude Code + Codex 的 Apple Silicon macOS 开发者启动 Public Beta，建立脱敏诊断包一键上报通道。
 - **退出验收门禁**：
-  - [ ] 全新无 Xcode 的 macOS 15 干净环境双击 `.dmg` 安装，通过 Gatekeeper 零警告启动；
+  - [ ] 全新无 Xcode 的 macOS 27 干净环境双击 `.dmg` 安装，通过 Gatekeeper 零警告启动；
   - [ ] 实测 Sparkle 2 从 `v0.9.0-beta.1` 平滑原地升级至 `v0.9.0-beta.2`；
   - [ ] Beta 连续 7 天高强度 Dogfooding 零孤儿进程残留、零 SQLite 损坏、零数据误删。
 
@@ -318,7 +318,7 @@ flowchart LR
 
 ## 4. 测试与验证体系
 
-鉴于多 Agent 协议依赖外部付费 CLI 与真实文件系统副作用，Shepherd 建立 **五层自动化测试金字塔**，使 90% 的质量保障在**无真实 API Key、无外网的 GitHub Actions `macos-15` 上可确定性运行**。
+鉴于多 Agent 协议依赖外部付费 CLI 与真实文件系统副作用，Shepherd 建立 **五层自动化测试金字塔**，使 90% 的质量保障在**无真实 API Key、无外网的 GitHub Actions `macos-27` 上可确定性运行**。
 
 > **v2 补充**：Fake Harness 与 Golden-file 只能证明 Shepherd 与录制时的协议一致，证明不了与当前上游 CLI 一致。R1 所说的每周实机 Smoke Test 需要真实账号与额度，无法在无密钥的 CI 上运行，要单独安排执行人和预算。
 
@@ -356,6 +356,9 @@ flowchart LR
 | **R14** | **Chat 长转录渲染卡顿（v2 新增）** | 中 | 中 | 200+ 条消息的会话切换超过 50 ms，或流式输出时滚动抖动 | M0 的 Chat 渲染 Spike 在 SwiftUI 懒加载列表与 AppKit 虚拟化列表之间选型，并完成 Markdown 引擎选型。 |
 | **R15** | **provider 契约过早定版（v3 新增）** | 中 | 中 | 接入第三种实现时需要修改 `ShepherdProviderKit` 的公开类型 | 1) 契约在 M0–M2 保持草案，允许不兼容修改；2) 经三种内置实现与若干外部 provider 验证后在 M3 定为 1.0；3) provider 清单声明兼容的契约版本范围，不兼容的不注册并给出原因。 |
 | **R16** | **外部 provider 的安全与资源开销（v3 新增）** | 中 | 中 | 用户添加来源不明的 provider；启用外部 provider 后内存超出门禁 | 1) 只支持手动添加并确认一次，不自动安装、不做市场；2) 外部 provider 为可选项，默认路径保持原生 Swift；3) 性能门禁按默认路径考核，外部 provider 的内存增量单独记录并在界面上提示；4) 清理与后代进程跟踪覆盖四层进程树。 |
+| **R17** | **无账号中继被滥用（v5 新增）** | 中 | 中 | 默认中继的连接数、流量或推送量异常；有人把中继当免费通道 | 1) 主机必须先通过密钥证明才能使用中继与推送；2) 按主机密钥与来源地址限制连接数、流量、每小时推送次数与邀请令牌的尝试次数；3) 支持自建中继，分摊默认中继的负载；4) 没有账号，无法按用户封禁，这一点比 Orca 弱，写明在案。 |
+| **R18** | **APNs 密钥保管（v5 新增）** | 低 | 中 | 密钥出现在仓库、镜像、日志或备份里；推送网关所在服务器被入侵 | 1) 推送网关与中继分开部署，中继接触不到密钥；2) 密钥限定到 `top.inorbit.shepherd` 一个 App；3) 只从服务器的密钥管理或环境变量读取，CI 加密钥扫描；4) 泄露后的影响限于冒充发通知，读不到内容也批准不了操作，可在开发者后台吊销换新；5) 上线前对配对、加密与质询做一次专门的安全审查。 |
+| **R19** | **新项目文件格式的工具链兼容（v5 新增）** | 低 | 低 | CI 或协作者使用低于 27 的 Xcode；第三方工具不认识 `project.xcproj` | 1) 最低系统已是 27，CI 固定使用 Xcode 27.2 或更高；2) 项目文件是可读的 JSON，改动可直接审查；3) 必要时可在 Xcode 里转回 `.pbxproj` 格式。 |
 
 ---
 

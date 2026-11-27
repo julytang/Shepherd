@@ -1,8 +1,8 @@
 # Shepherd macOS 原生系统架构设计
 
 > **文档角色**：Shepherd 方案计划书 — 系统架构篇（`docs/02-architecture.md`）  
-> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成校准，**路线 C1 保留**。修订版 v3（2026-11-26）：性能数字均为未实测目标；审批模型、进程清理、Worktree 安全与 Chat 渲染四处设计已按评审修正（v2）；**Claude Code 接入已对齐（§3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划（v3）**。v4（2026-11-27）：崩溃兜底改为每个 Agent 一个看守进程加进程树标记，借鉴 Orca 的 `orca-provider-exec`（§3.3.3）。  
-> **目标平台与协议**：macOS 15.0+ (Sequoia) · **仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · Swift 6.0+ Strict Concurrency · **MIT License**  
+> **校准状态**：已结合上游源码审计报告 [`docs/01-orca-audit.md`](./01-orca-audit.md)（基线 `stablyai/orca` Commit `284bf842` / v1.4.214）与产品规范 [`docs/03-product-and-ux.md`](./03-product-and-ux.md) 完成校准，**路线 C1 保留**。修订版 v3（2026-11-26）：性能数字均为未实测目标；审批模型、进程清理、Worktree 安全与 Chat 渲染四处设计已按评审修正（v2）；**Claude Code 接入已对齐（§3.1.4），Agent 接入改为 provider 分层（§3.1.5），终端抽屉移出规划（v3）**。v4（2026-11-27）：崩溃兜底改为每个 Agent 一个看守进程加进程树标记，借鉴 Orca 的 `orca-provider-exec`（§3.3.3）。v5（2026-11-27）：最低系统升到 macOS 27；新增 Companion 与中继设计（§3.5）；工程目录改为 workspace 加两个 App 项目（§4）。  
+> **目标平台与协议**：macOS 27.0+ · **仅 Apple Silicon (`arm64`，不支持 Intel Mac)** · Swift 6.0+ Strict Concurrency · **MIT License**  
 > **架构愿景**：以 Conductor / cmux 级别的 macOS 原生轻快体验，承载 Orca 级别的跨厂商 BYOA（Claude Code / Codex / ACP Agent）与 Git Worktree 并发隔离编排能力。  
 > **范围说明**：本期聚焦本地单机多 Agent 编排核心，**不包含**模型路由网关或协议转换代理（如 Magpie 类能力），仅在底层预留干净的子进程环境变量注入与协议扩展边界（详见第 7 节）。
 
@@ -84,7 +84,7 @@ Shepherd 采用清晰的 **四层单向数据流架构**，严格遵循 Swift 6 
 
 ```mermaid
 flowchart TB
-    subgraph UI["Presentation Layer (macOS 15+ · @MainActor)"]
+    subgraph UI["Presentation Layer (macOS 27+ · @MainActor)"]
         direction LR
         Nav["WindowGroup & SplitView: Repo / Worktree 状态树"]
         Chat["Native Chat Stream: Markdown · Thinking · ToolCard · 内联审批"]
@@ -645,7 +645,7 @@ stateDiagram-v2
 
 #### 3.3.2 Direct Distribution 签名、公证与更新链路
 - **目标架构与开源协议（已锁定）**：仅构建并分发 **Apple Silicon (`arm64`)** 单一架构（不支持 Intel Mac、不打 Universal Binary）；项目以 **MIT License** 开源发布。
-- **Bundle ID 与签名分阶段策略（已锁定）**：开发期（M0–M1）先使用临时占位 Bundle ID（如 `io.github.julytang.shepherd`）配合本地 ad-hoc 签名进行高频迭代；在首次对外公测（M4）或公证演练前最终定稿正式 Bundle ID 与 Developer ID Application 签名主体。
+- **Bundle ID 与签名分阶段策略（已锁定）**：开发期（M0–M1）先使用Bundle ID `top.inorbit.shepherd`（v5 已定稿，Debug 构建加 `.dev`）配合本地 ad-hoc 签名进行高频迭代；在首次对外公测（M4）或公证演练前最终定稿 Developer ID Application 签名主体。
 - **Hardened Runtime**：开启 Hardened Runtime（Apple 公证必需），遵循最小权限 Entitlements 原则：
   - `com.apple.security.app-sandbox = false`
   - `com.apple.security.network.client = true`（用于 Sparkle 更新检查、可选 GitHub PR API 调用）
@@ -654,7 +654,7 @@ stateDiagram-v2
   `xcodebuild archive`（`-arch arm64`）→ 由内向外逐组件 `codesign --options runtime --timestamp`（使用 **Developer ID Application** 证书依次签 `Sparkle.framework` 组件、`shepherd-reaper` 与 `Shepherd.app`，禁用 `--deep`）→ 临时 `ditto` 打包并 `notarytool` 公证 `Shepherd.app` → `stapler staple Shepherd.app` → 重新 `ditto` 打最终 Sparkle `.zip` → 基于已装订 `.app` 生成并签名 `.dmg` → `notarytool` 公证并 `stapler` 装订 `.dmg` → `spctl` 分别校验 `.app` 与 `.dmg`（详见 `docs/04-roadmap-and-engineering.md` §2.2）。
 - **自动更新**：集成 **Sparkle 2**，使用 **EdDSA (`SUPublicEDKey`)** 校验更新包签名，托管静态 `appcast.xml`（支持 Stable / Beta 双频道）。
 - **macOS GUI `PATH` 环境补全**：从 Finder / Spotlight 启动的 macOS GUI App 默认仅继承极简 `PATH=/usr/bin:/bin:/usr/sbin:/sbin`，找不到 Homebrew 与 nvm 安装的 `claude`/`codex`。Shepherd 启动时执行单次异步探测（`$SHELL -ilc 'env -0'`，3s 超时保护 + 交互式提示符抑制 + 缓存回退常见路径 `/opt/homebrew/bin`、`~/.local/bin`、`~/.npm-global/bin` 等），确保零配置开箱即用。
-- **品牌隔离与开源合规基线（对齐 `docs/01-orca-audit.md` §1.3）**：以 **MIT License** 开源发布，彻底清除任何 Orca 商标/资源、`ORCA_*` 前缀、`clientInfo: "orca_desktop"` 与 `CLAUDE_CODE_ENTRYPOINT=orca`；零遥测零云端中继；全程采用系统原生 SF Pro / SF Mono（不引入 Geist SIL OFL 字体）；不捆绑闭源 `@anthropic-ai/claude-agent-sdk`；在 `THIRD_PARTY_NOTICES.md` 与 `About -> Licenses` 完整声明全部开源依赖。
+- **品牌隔离与开源合规基线（对齐 `docs/01-orca-audit.md` §1.3）**：以 **MIT License** 开源发布，彻底清除任何 Orca 商标/资源、`ORCA_*` 前缀、`clientInfo: "orca_desktop"` 与 `CLAUDE_CODE_ENTRYPOINT=orca`；零遥测；Mac 端不依赖任何云端服务，Companion 的中继只转发密文（§3.5）；全程采用系统原生 SF Pro / SF Mono（不引入 Geist SIL OFL 字体）；不捆绑闭源 `@anthropic-ai/claude-agent-sdk`；在 `THIRD_PARTY_NOTICES.md` 与 `About -> Licenses` 完整声明全部开源依赖。
 
 #### 3.3.3 进程组回收与防孤儿进程（Orphan Prevention）
 
@@ -746,26 +746,96 @@ Shepherd 实施以下防孤儿保障机制（v2 增加第 4 点，并收窄了�
 
 ---
 
+### 3.5 Companion 与中继（v5 新增）
+
+Mobile Companion 改回范围，列为 P1（[`docs/03-product-and-ux.md`](./03-product-and-ux.md) §2）。iPhone、iPad、iPhone Duo 共用一个 iOS App。
+
+#### 3.5.1 边界
+
+- **执行只在 Mac**：Agent、Worktree、git 与 `gh` 都在 Mac 本机运行。Companion 只查看状态、审批与作答、审查 Diff、派发新任务，结果回到 Mac 执行。
+- **Mac 端不依赖中继**：不绑定任何设备时，Mac 端不连接任何服务。
+- **不做账号**：信任靠设备绑定建立。
+- **移动端的限制**：「完全放行」档位不提供；锁屏通知与实时活动不提供批准按钮，必须打开 App 看到完整上下文后再批准（与菜单栏 Popover 的原则一致）。
+
+#### 3.5.2 组成
+
+| 部分 | 位置 | 语言 | 职责 |
+| :--- | :--- | :--- | :--- |
+| 内层协议、配对、加密 | `Packages/ShepherdRemote` | Swift | 审批、会话、Diff 等业务消息；端到端握手 |
+| 两端通用的数据模型 | `Packages/ShepherdModels` | Swift | 仓库、Worktree、会话、审批请求 |
+| 中继 `relay` | `Server/` | Node | 验证主机密钥、管理设备凭证、对接连接后转发密文 |
+| 推送网关 `push` | `Server/` | Node | 持有 APNs 密钥，替已绑定的设备发送加密通知 |
+
+- **协议分两层**：内层只有 Swift 实现，服务端看不懂；外层是服务端参与的部分，草案见 `Server/PROTOCOL.md`。
+- **Server 用 Node 不违背路线 C1**：路线 C1 反对的是把 Node 运行时打进 Mac 安装包。服务端的 Node 跑在服务器上，不进入任何 App。
+
+#### 3.5.3 绑定设备
+
+1. Mac 上点「绑定设备」，请求中继生成一次性邀请令牌，屏幕显示包含中继地址、主机公钥与邀请令牌的二维码。
+2. 手机扫码，带邀请令牌连接中继。
+3. 两端完成端到端握手。Mac 与手机各显示一个短验证码，用户核对一致后在 Mac 上确认。
+4. Mac 为这台设备在中继上登记续连令牌的哈希。之后手机用续连令牌重连，令牌可轮换。
+5. Mac 的设置里有「已绑定设备」列表，可以逐台解绑，对应中继上的吊销。
+
+#### 3.5.4 中继的校验
+
+设计参考 Orca 的中继契约（`01-orca-audit.md` §7.8），去掉账号层与多节点调度：
+
+- **主机密钥证明**：中继用主机公钥加密随机数，主机解密后回传 MAC。主机的身份就是这把密钥。
+- **设备凭证**：邀请令牌（一次性、有过期时间和尝试次数上限）、续连令牌（中继只存哈希，带版本与宽限期）、吊销。
+- **连接对接**：设备带凭证连上后，中继通知主机并给出连接票据，主机另开数据连接，两条对上后才开始转发。
+- **不缓存业务消息**：设备重新连接后，由 Mac 同步完整状态。
+
+#### 3.5.5 推送
+
+- 推送网关与中继分开部署。中继面对大量长连接，推送网关持有 APNs 密钥，分开后中继出问题也接触不到密钥。
+- 支持用户自建中继。自建中继不持有 APNs 密钥，Mac 端仍向官方推送网关请求推送。
+- 推送内容是密文，由手机上的通知扩展解密后显示。
+
+#### 3.5.6 服务端能看到什么
+
+- **能看到**：主机公钥、设备凭证的哈希、配对关系、连接时间与流量、推送令牌。
+- **看不到**：审批内容、命令、代码、对话，包括通知的内容。
+
+#### 3.5.7 已知缺口与待定
+
+- 没有账号，任何人生成一把密钥就能注册成主机。默认中继只能按主机密钥与来源地址限流（`04` R17）。
+- 加密算法、密钥格式、各类令牌的时限都未定。Swift（CryptoKit）与 Node 之间需要一组共用的测试样本。
+- 实时活动的推送是否与通知共用一套登记流程，未定。
+- Companion 的性能与验收指标尚未制定。
+- 上线前要对配对、加密与质询做一次专门的安全审查（`04` R18）。
+
+---
+
 ## 4. 工程目录与模块化规划（SwiftPM）
 
-推荐采用「**轻量 Xcode App Target + 本地多模块 Swift Packages**」的组织方式，保证核心逻辑（协议、Git、存储）可在命令行 `swift test` 中独立跑通单元测试，无需拉起 GUI（完整构建、CI/CD 与里程碑见 [`docs/04-roadmap-and-engineering.md`](./04-roadmap-and-engineering.md)）：
+采用「**一个 workspace + 两个轻量 App 项目 + 本地多模块 Swift Packages**」的组织方式，保证核心逻辑（协议、Git、存储）可在命令行 `swift test` 中独立跑通单元测试，无需拉起 GUI（完整构建、CI/CD 与里程碑见 [`docs/04-roadmap-and-engineering.md`](./04-roadmap-and-engineering.md)）：
 
 ```text
 Shepherd/
-├── Shepherd.xcodeproj                # macOS App Target (Signing, Entitlements, Info.plist)
-├── App/                              # 极薄入口层（AppDelegate, WindowGroup, MenuBarExtra, DeepLink）
-├── Helpers/
-│   └── ShepherdReaper/               # 每个 Agent 一层的启动器与看守进程 (编译打入 Contents/Helpers/)
+├── Shepherd.xcworkspace              # 唯一入口：两个 App 项目 + 全部本地包
+├── Config/                           # Shared.xcconfig：Bundle ID 规则、版本号、最低系统
+├── Apps/
+│   ├── macOS/                        # macOS.xcodeproj：target macOS、Reaper、macOSTests、macOSUITests
+│   │   ├── Shepherd/                 # 极薄入口层（WindowGroup, MenuBarExtra, DeepLink）
+│   │   └── Reaper/                   # 每个 Agent 一层的启动器与看守进程 (嵌入 Contents/Helpers/)
+│   └── iOS/                          # iOS.xcodeproj：target iOS、iOSTests、iOSUITests（iPhone、iPad、iPhone Duo）
+│       └── Shepherd/                 # Companion 入口层
+├── Server/                           # Node：中继与推送网关（§3.5）
 └── Packages/
-    ├── ShepherdProviderKit/          # provider 契约：AgentAdapter、AgentEvent、三类交互、能力声明、启动规格、NDJSON 传输层
-    ├── ShepherdCore/                 # 领域模型、SessionCoordinator、ApprovalGatekeeper、EnvProvider、ProviderRegistry
+    ├── ShepherdModels/               # 【两端通用】仓库、Worktree、会话、审批请求等数据模型
+    ├── ShepherdRemote/               # 【两端通用】Mac 与 Companion 之间的配对、端到端加密与内层协议
+    ├── ShepherdUI/                   # 【两端通用】SwiftUI 视图；Mac 专用的 AppKit 桥接按平台条件编译
+    ├── ShepherdProviderKit/          # provider 契约：AgentAdapter、AgentEvent、三类交互、能力声明、启动规格、NDJSON 传输
+    ├── ShepherdCore/                 # SessionCoordinator、ApprovalGatekeeper、EnvProvider、ProviderRegistry
     ├── ShepherdProviderCodex/        # 内置 provider `codex`：CodexAppServerAdapter
     ├── ShepherdProviderClaude/       # 内置 provider `claude-direct`：ClaudeCodeAdapter
     ├── ShepherdProviderACP/          # 内置 provider `acp`：ACPClientAdapter + 外部 provider 清单加载
     ├── ShepherdGit/                  # WorktreeManager、RepoLockActor、YAML 解析 & SHA-256 门控、GitDiffEngine
-    ├── ShepherdStorage/              # GRDB.swift DatabasePool、Migrations、Repositories、FTS5 全文检索
-    └── ShepherdUI/                   # SwiftUI 视图 + AppKit 桥接（Diff NSTableView/NSTextView、SplitView）
+    └── ShepherdStorage/              # GRDB.swift DatabasePool、Migrations、Repositories、FTS5 全文检索
 ```
+
+> **v5**：仓库已按这个结构初始化。除 `ShepherdModels`、`ShepherdRemote`、`ShepherdUI` 三个包同时支持 iOS 外，其余包只支持 macOS。
 
 > **v3**：原 `ShepherdAgents` 拆成契约包加三个 provider 包，`ShepherdTerminal` 取消。三个 provider 包只依赖 `ShepherdProviderKit`，只被 App 入口引用（§3.1.5）。
 

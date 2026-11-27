@@ -1,7 +1,7 @@
 # Shepherd 方案计划书总纲
 
-> **文档状态**：修订版 v4（2026-11-27）· 路线 C1 保留；立项决策第 4 项改定为不内嵌终端，新增第 5 项 provider 分层；性能数字均为未验证目标；**Claude Code 接入已对齐**；全部排期内容已移除；**崩溃兜底改为每个 Agent 一个看守进程**（修订记录见 §8）  
-> **目标平台与协议**：macOS 15.0+ (Sequoia) · **仅 Apple Silicon (`arm64`)**（不支持 Intel Mac）· Swift 6.0+ Strict Concurrency · **MIT License**  
+> **文档状态**：修订版 v5（2026-11-27）· 路线 C1 保留；立项决策第 4 项改定为不内嵌终端，新增第 5 项 provider 分层；性能数字均为未验证目标；**Claude Code 接入已对齐**；全部排期内容已移除；**崩溃兜底改为每个 Agent 一个看守进程**；**工程骨架已初始化，Mobile Companion 改回范围**（修订记录见 §8）  
+> **目标平台与协议**：macOS 27.0+ · **仅 Apple Silicon (`arm64`)**（不支持 Intel Mac）· Swift 6.0+ Strict Concurrency · **MIT License**  
 > **文档导航**：[01 上游代码审计](./01-orca-audit.md) · [02 系统架构设计](./02-architecture.md) · [03 产品与 UX 规范](./03-product-and-ux.md) · [04 工程路线图与测试](./04-roadmap-and-engineering.md)  
 > **范围边界**：本期专注本地单机多 Agent 编排体验，**明确排除模型路由与额度容灾网关（如 Magpie 类能力）**，仅在架构底层预留干净的子进程环境变量注入边界供后续阶段按需对接。
 
@@ -17,7 +17,7 @@
 | **最终技术路线** | **锁定路线 C1：100% 纯 Swift 6 原生内核 + Protocol-First 抽象 + 可选 ACP 逃生舱** | 上游审计证实 `orcad` 虽已 0 Electron 导入，但锁定 Node v24.22.3（`arm64` 单二进制即 **122.59 MB**）+ 11 MB bundle + 25 子入口 + 31.7 万行深度捆绑 RPC + 闭源商业条款 SDK，违背轻量原生与合规红线；纯 Swift 核心后端估算 **< 1 万行**（不足 Orca `src/main` 的 1%；v2：该估算不含 UI 且偏乐观，路线结论不依赖它）。v3：ACP 不再只是逃生舱，它同时是外部 provider 的协议。 |
 | **关键体验取舍** | **只做 Native Chat，不内嵌终端（v3 改定）**；**MVP 默认零 Skill 注入** | 对话只有一种形态，Claude 的备用路径是同一契约下的外部 provider `claude-acp`，不经过终端；需要 shell 时 `⌘⇧T` 跳系统终端。代价是产品内没有切回原版 TUI 的路径（§4.1）。坚持零污染、零 Token 税、不篡改用户 `~/.claude` / `~/.codex`。 |
 | **Agent 接入方式（v3 新增）** | **provider 分层：内置 provider 为独立 Swift 包，外部 provider 走 ACP** | 每个 Agent 的接入实现可以独立维护，核心只依赖一个契约包，不随某个 Agent 的协议变动而改动；做法参照 Magpie 的两层插件结构（[`docs/02-architecture.md`](./02-architecture.md) §3.1.5）。 |
-| **分发与安全模型** | **Direct Distribution（仅 Apple Silicon `arm64`，非 Mac App Store）** + `shepherd-reaper` 孤儿进程清场 + **SHA-256 脚本信任门控** | App Sandbox 无法调用本机工具链与凭据；开发期先使用占位 Bundle ID（如 `io.github.julytang.shepherd`）+ ad-hoc 签名，首次公测前定稿正式 ID 并完成 Developer ID + Notarization + Sparkle 2；仓库脚本入口经 SHA-256 信任确认（只覆盖命令文本，边界见 §4.3），软链强制 `git check-ignore` + 路径穿越拦截。 |
+| **分发与安全模型** | **Direct Distribution（仅 Apple Silicon `arm64`，非 Mac App Store）** + `shepherd-reaper` 孤儿进程清场 + **SHA-256 脚本信任门控** | App Sandbox 无法调用本机工具链与凭据；开发期先使用Bundle ID `top.inorbit.shepherd`（v5 已定稿，Debug 构建加 `.dev`）+ ad-hoc 签名，首次公测前完成 Developer ID + Notarization + Sparkle 2；仓库脚本入口经 SHA-256 信任确认（只覆盖命令文本，边界见 §4.3），软链强制 `git check-ignore` + 路径穿越拦截。 |
 | **核心性能门禁** | 冷启动 **≤ 400 ms** · 空闲内存 **≤ 80 MB**（目标 45–75 MB）· 5 并发 **≤ 220 MB** · `.dmg` **≤ 25 MB** | 均为设计目标，尚未实测；用来对比的 Electron / Node Sidecar 数字（>150 MB 包体、250–500 MB 空闲内存）是估算，不是测量值。 |
 | **交付阶段** | **M0–M4 五个阶段按顺序推进，M0–M2 交付 MVP** | `M0 验证 Spike` → `M1 核心闭环` → `M2 原生 Diff/PR` → `M3 外部 provider 扩展` → `M4 公测发版`；各阶段的任务与门禁见 §5。 |
 | **开源与合规姿态** | **MIT License 开源 · 零闭源 SDK 捆绑、零遥测、零上游商标残留**（v2：不捆绑 SDK 不等于订阅凭据使用合规，三个独立风险见 §6） | 以 MIT 协议开源发布；彻底不捆绑受 Anthropic Commercial Terms of Service 约束的 `@anthropic-ai/claude-agent-sdk`；清除 `ORCA_*` / `orca_desktop` / `CLAUDE_CODE_ENTRYPOINT=orca`；保留 `Lovecast Inc.` MIT 参考声明（若复用代码）。 |
@@ -47,7 +47,7 @@
 | :--- | :---: | :--- |
 | **核心保留（Keep）** | `MVP` | ① **Git Worktree 隔离生命周期**（创建、基线同步、脏检查、孤儿对账与崩溃续跑）；<br>② **`shepherd.yaml` 并向后兼容 `orca.yaml`**（`worktree.sharedDirectories` + 本地 `symlinkPaths` + `git check-ignore` + 脚本 SHA-256 门控）；<br>③ **Native Chat 主对话流**（Codex & Claude Code 一等公民 + ACP 标准流最小闭环；可折叠 Thinking、只读 Tool 归并卡、内联权限审批条、问题作答卡与表单填写卡、Turn 摘要卡、消息队列）；<br>④ **原生 Diff Inspector 与一键 Commit / PR**（AppKit 虚拟化渲染、Unified/Split、逐 Hunk 审查/丢弃、`FSEvents` 实时刷新、`gh` PR 闭环）；<br>⑤ **macOS 原生通知与菜单栏状态徽章**（`MenuBarExtra` + `UNUserNotificationCenter` 降噪深链接）；<br>⑥ **外部主力 IDE 精准跳转**（`⌘O` 直达 Cursor / Zed / VS Code / Xcode / Finder 及精确 Diff 行号）。 |
 | **瘦身保留（Trim）** | `P1` | ① **跨会话全文检索**（GRDB FTS5）；<br>② **面向人类开发者的极简 `shepherd` CLI**（`shepherd open` / `shepherd new`）；<br>③ **外部 provider 清单扩展**（5–8 个主流 ACP CLI）；<br>④ **Claude 进阶能力**（会话分叉；视 M0 验证结果决定是否提供「严格模式」）。 |
-| **第一刀砍掉（Cut）** | `Out-of-Scope` | 内嵌 Chromium 浏览器 & Design Mode · 内置 Monaco 代码编辑器 · Mobile Companion 与 E2E Relay · 远程 SSH / Docker / 云端沙箱节点 · Linear / Jira / GitHub 全套看板 · 复杂 DAG 可视化编排器 · 定时自动化任务（Cron / Schedules）· 语音转写 · 内嵌终端抽屉（v3 移出，原为 P1）。 |
+| **第一刀砍掉（Cut）** | `Out-of-Scope` | 内嵌 Chromium 浏览器 & Design Mode · 内置 Monaco 代码编辑器 · 远程 SSH / Docker / 云端沙箱节点 · Linear / Jira / GitHub 全套看板 · 复杂 DAG 可视化编排器 · 定时自动化任务（Cron / Schedules）· 语音转写 · 内嵌终端抽屉（v3 移出，原为 P1）。 |
 | **暂不纳入（Defer）** | `P2` | **多模型本地路由与额度容灾网关（如 Magpie 类能力）** · Agent 自驱派活模式（Opt-in 会话级本地 MCP Server）· 团队云同步 · 外部 provider 的发现与自动安装。 |
 
 ---
@@ -165,7 +165,7 @@ flowchart LR
 | **M1：MVP 核心闭环** | `GRDB` WAL 存储、Per-Session Actor 33ms 节流、权限档位（映射 Agent 原生模式）与三类待处理交互、三个内置 provider 与外部 provider 的手动添加、原生双栏 UI（Sidebar + Native Chat + `⌘N` + 信任弹窗：仓库信任门与 SHA-256 脚本信任）、`MenuBarExtra` & 系统通知、`⌘O`/`⌘⇧T` 跳转 | 同仓并发跑通 Claude + Codex Worktree 零冲突；`claude-direct` 不可用时可改用 `claude-acp` 新开会话完成同一任务；冷启动 **≤ 400 ms**、空闲内存 **≤ 80 MB**、通知延迟 **≤ 300 ms**；通过真实 `orca.yaml` 兼容与零污染审计。 |
 | **M2：原生 Diff / PR 与性能打磨** | AppKit 虚拟化 Diff Inspector（`⌘⇧D`、Unified/Split、Hunk Stage/Discard）、`FSEvents` 实时刷新、`gh` Commit/PR 闭环、`⌘K` 命令面板与全键盘流、`Protocol Inspector` | 50 文件 / 2,000 行 Diff 首帧 **≤ 150 ms**；外部保存自动刷新 **≤ 500 ms**；5 并发 15 分钟压测内存 **≤ 220 MB** 且稳定 **60/120fps**；全键盘端到端验收通过。 |
 | **M3：外部 provider 扩展与体验进阶** | 5–8 个外部 provider 的清单与方言说明、`ShepherdProviderKit` 定为 1.0、Claude 会话分叉（及视 M0 结果而定的「严格模式」）、GRDB FTS5 全文检索、人类向 `shepherd` CLI | 每个外部 provider 跑通一次含审批的真实任务；外部 provider 会话在宿主 `kill -9` 后被清理；契约 1.0 发布后已有 provider 无需修改；`.dmg` 体积仍 **≤ 25 MB**。 |
-| **M4：签名公证与 Public Beta** | 由内向外 Hardened Runtime 签名（禁用 `codesign --deep`）、`notarytool` 公证、Sparkle 2 EdDSA `appcast.xml`、Homebrew Cask、20–50 人种子公测 | 无 Xcode 干净 macOS 15 零警告通过 Gatekeeper；实测 Sparkle 2 原地升级成功；7 天高强度 Dogfooding 零孤儿进程与零数据损坏。 |
+| **M4：签名公证与 Public Beta** | 由内向外 Hardened Runtime 签名（禁用 `codesign --deep`）、`notarytool` 公证、Sparkle 2 EdDSA `appcast.xml`、Homebrew Cask、20–50 人种子公测 | 无 Xcode 干净 macOS 27 零警告通过 Gatekeeper；实测 Sparkle 2 原地升级成功；7 天高强度 Dogfooding 零孤儿进程与零数据损坏。 |
 
 **五层无外网自动化测试保障**：① 协议 Golden-File 随机切片回放（各 provider 包的测试）→ ② 独立 `FakeAgentHarness` 500 tok/s 高并发契约测试 → ③ 真实临时仓 `git worktree` / `check-ignore` / SHA-256 集成测试 → ④ `SIGKILL` 宿主验证 `shepherd-reaper` 孤儿清场专项测试（v2：含另建进程组的后代；v3：含外部 provider 下的四层进程树；v4：含被 launchd 收养的带标记后代） → ⑤ `XCTMetric` 性能基准 + 沙盒 `HOME` 零污染快照审计。五层之外另有依赖方向边界测试，断言核心不引用任何 provider 包。
 
@@ -184,7 +184,7 @@ flowchart LR
 - [ ] **开源许可声明完备（MIT License）**：Shepherd 自身以 **MIT License** 开源发布，仓库根目录与 App `About -> Licenses` 完整提供 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`，列出实际依赖（`GRDB.swift`、`Yams`、`Sparkle` 均为 MIT；Markdown 引擎待 M0 选型，许可证随选型补入）；若参考或复用任何 Orca 源码片段，保留 `Copyright (c) 2026 Lovecast Inc.` MIT 声明；全程使用系统原生 SF Pro / SF Mono（不引入 Geist SIL OFL 字体）；如未来随包分发 `ripgrep`，须附带其完整许可证目录。
 - [ ] **零遥测与最小权限**：0 处遥测/云端上报代码；`Entitlements` 仅开启 `network.client=true`（用于 Sparkle 与可选 GitHub API），关闭 `allow-jit` / `disable-library-validation`；本地 IPC 严格限定 `0600` Unix Domain Socket（`~/.shepherd/run/shepherd.sock`）+ `LOCAL_PEERCRED` UID 校验 + 256-bit Token。
 - [ ] **零污染的已声明写入清单（v2 新增）**：列明 Shepherd 会写的位置（自身数据目录、`~/.shepherd`、目标仓库的 `$GIT_COMMON_DIR/info/exclude`），以及 Agent CLI 自己会写的位置（如其会话文件）。除此之外，对 `~/.claude`、`~/.codex` 与目标仓库工作区零写入。
-- [ ] **由内向外签名与双载体公证（仅 `arm64`）**：开发期（M0–M1）先以占位 Bundle ID（如 `io.github.julytang.shepherd`）+ 本地 ad-hoc 签名迭代，首次对外公测前最终定稿正式 Bundle ID 与签名主体；发版禁用 `codesign --deep`，按 `Sparkle.framework` → `shepherd-reaper` → `Shepherd.app` 顺序签 Hardened Runtime 并逐组件校验，对 `.app`（供 Sparkle 2 `.zip` 增量更新）与已签名 `.dmg` 均完成 `notarytool` 公证、`stapler` 装订与 `spctl` 检验。
+- [ ] **由内向外签名与双载体公证（仅 `arm64`）**：开发期（M0–M1）先以Bundle ID `top.inorbit.shepherd`（v5 已定稿，Debug 构建加 `.dev`）+ 本地 ad-hoc 签名迭代，首次对外公测前最终定稿正式 Bundle ID 与签名主体；发版禁用 `codesign --deep`，按 `Sparkle.framework` → `shepherd-reaper` → `Shepherd.app` 顺序签 Hardened Runtime 并逐组件校验，对 `.app`（供 Sparkle 2 `.zip` 增量更新）与已签名 `.dmg` 均完成 `notarytool` 公证、`stapler` 装订与 `spctl` 检验。
 
 ---
 
@@ -212,8 +212,8 @@ flowchart LR
 #### 一、已拍板立项决策（5 项 · LOCKED）
 
 1. **开源协议锁定 MIT License**：Shepherd 正式采用 **MIT License** 开源发布，确保完全透明可控、零商业锁死，利于社区共建 ACP 方言与建立开发者信任。
-2. **目标硬件架构锁定仅 Apple Silicon (`arm64`)**：明确仅支持 **macOS 15.0+ Apple Silicon (`arm64`)**，**不支持 Intel Mac**。彻底去除双架构维护与 CI 回归负担，保证单一 `arm64` `.dmg` 体积稳定控制在 **≤ 25 MB** 红线之内。
-3. **Bundle ID 与签名主体分阶段定稿**：开发期（M0–M1）先使用临时占位 Bundle ID（如 `io.github.julytang.shepherd`）配合本地 ad-hoc 签名推进编码；正式 Bundle Identifier、Developer ID 团队证书、Sparkle `appcast.xml` 托管域名及 Homebrew Tap 统一在**首次对外公测（M4）或公证演练前最终定稿**。
+2. **目标硬件架构锁定仅 Apple Silicon (`arm64`)**：明确仅支持 **macOS 27.0+ Apple Silicon (`arm64`)**，**不支持 Intel Mac**。彻底去除双架构维护与 CI 回归负担，保证单一 `arm64` `.dmg` 体积稳定控制在 **≤ 25 MB** 红线之内。
+3. **Bundle ID 与签名主体分阶段定稿**：开发期（M0–M1）先使用Bundle ID `top.inorbit.shepherd`（v5 已定稿，Debug 构建加 `.dev`）配合本地 ad-hoc 签名推进编码；Developer ID 团队证书、Sparkle `appcast.xml` 托管域名及 Homebrew Tap 统一在**首次对外公测（M4）或公证演练前最终定稿**。
 4. **对话只保留 Native Chat，不内嵌终端（v3 改定）**：原决策是 `⌘J` 终端抽屉（`SwiftTerm`）锁定在 M3 交付。v3 把它整体移出规划，连同 Resume in Terminal、终端状态同步与转录回填；需要 shell 时用 `⌘⇧T` 跳系统终端。理由与代价见 §4.1。
 5. **Agent 接入按 provider 分层（v3 新增）**：内置 provider 为独立 Swift 包，外部 provider 走 ACP；核心只依赖契约包 `ShepherdProviderKit`。Claude 默认用 `claude-direct`，备用是 `claude-acp`。
 
@@ -297,3 +297,25 @@ flowchart LR
 - Orca 的实现只读了注释与关键结构，没有运行验证。
 - `claude`、`codex` 是否会清洗子进程环境、启动器是否原样传递信号与退出码，都留给 M0 实测（`02` §3.3.3）。
 
+### v5（2026-11-27）工程骨架初始化与 Companion 改回范围
+
+本轮来自几项决定：仓库初始化为 monorepo；最低系统升到 27；Mobile Companion 改回范围并自建中继。v4 的版本保留在 git 提交 `298bc14`。
+
+| 主题 | 变更 | 详见 |
+| :--- | :--- | :--- |
+| 最低系统 | macOS 15 改为 macOS 27；Companion 为 iOS / iPadOS 27。不再需要 Liquid Glass 的回退 | 各文档文首；`04` §2.1 |
+| Bundle ID | 定为 `top.inorbit.shepherd`，Mac 与 iOS 共用，Debug 构建加 `.dev`；签名主体仍在 M4 前定稿 | `04` §2.1 |
+| 仓库结构 | `Shepherd.xcworkspace` 加 `Apps/macOS`、`Apps/iOS` 两个项目；Reaper 成为 macOS 项目里的 target；取消根 `Package.swift` | `04` §1；`02` §4 |
+| Swift 包 | 由 8 个变为 10 个：新增两端通用的 `ShepherdModels` 与 `ShepherdRemote` | `04` §1；`02` §4 |
+| Mobile Companion | 由 Cut 改为 P1。iPhone、iPad、iPhone Duo 共用一个 iOS App；Agent 仍只在 Mac 执行 | `03` §2；`02` §3.5 |
+| 中继与推送 | 自建，Node 实现，放在 `Server/`。不做账号，靠设备绑定；内容端到端加密；推送网关与中继分开部署 | `02` §3.5；`Server/` |
+| 证据 | 新增 Orca 中继与推送的查证 | `01` §7.8 |
+| 风险 | 新增 R17（无账号中继的滥用）、R18（APNs 密钥保管）、R19（新项目文件格式要求 Xcode 27） | `04` §5 |
+
+**未处理、留待后续**：
+
+- 仓库里的工程都是可构建的空壳，没有业务代码。
+- 中继的外层协议只有草案（`Server/PROTOCOL.md`），加密算法、字段与时限都未定。
+- Companion 的性能与验收指标尚未制定，`03` §5 的指标仍只针对 Mac。
+- `04` §1.1 目录树里各包内部的子目录仍是 v3 的规划，只更新了顶层结构。
+- iOS 的通知扩展与实时活动扩展 target 尚未创建。

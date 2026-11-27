@@ -3,7 +3,7 @@
 > **文档归属**：Shepherd 方案计划书 · 第三部分（产品与 UX 规划）  
 > **关联文档**：上游代码审计见 [`docs/01-orca-audit.md`](./01-orca-audit.md)；系统架构与技术路线见 [`docs/02-architecture.md`](./02-architecture.md)；工程落地与里程碑见 [`docs/04-roadmap-and-engineering.md`](./04-roadmap-and-engineering.md)  
 > **范围说明**：本文档定义 Shepherd 的产品定位、相对 `stablyai/orca` 的功能裁剪边界、两项关键产品决策专题、macOS 原生信息架构与交互规范，以及可量化的验收标准。多模型本地路由与额度容灾网关能力**不在本期范围**，仅列为远期演进扩展点。  
-> **修订状态**：修订版 v3（2026-11-26）。v2：更新了竞品信息与差异化表述，修正了审批与信任门控的承诺范围，性能指标统一标注为未实测目标。v3：对话只保留 Native Chat，终端抽屉移出规划（3.1 专题 A）；Claude 的权限档位、仓库信任门与备用路径按 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4 定稿；Agent 接入按 provider 组织（§3.1.5）。v4（2026-11-27）：进程清理改为每个 Agent 一个看守进程加进程树标记（[`docs/02-architecture.md`](./02-architecture.md) §3.3.3），相应更新了验收清单与环境变量表述。
+> **修订状态**：修订版 v3（2026-11-26）。v2：更新了竞品信息与差异化表述，修正了审批与信任门控的承诺范围，性能指标统一标注为未实测目标。v3：对话只保留 Native Chat，终端抽屉移出规划（3.1 专题 A）；Claude 的权限档位、仓库信任门与备用路径按 [`docs/02-architecture.md`](./02-architecture.md) §3.1.4 定稿；Agent 接入按 provider 组织（§3.1.5）。v4（2026-11-27）：进程清理改为每个 Agent 一个看守进程加进程树标记（[`docs/02-architecture.md`](./02-architecture.md) §3.3.3），相应更新了验收清单与环境变量表述。v5（2026-11-27）：最低系统升到 macOS 27；Mobile Companion 改回范围，列为 P1。界面设计见仓库 `design/`。
 
 ---
 
@@ -31,7 +31,7 @@
 - **macOS 原生优先（锁定纯 Swift 6 原生内核）**：深度利用 macOS 原生窗口管理、菜单栏、系统通知、明暗材质与快捷键肌肉记忆；基于 [`docs/01-orca-audit.md`](./01-orca-audit.md) 的硬事实审计，彻底放弃 Electron 与重型 Node Sidecar（避免 122.6 MB Node 运行时包体税与多进程内存膨胀），直接采用纯 Swift 6 原生内核。
 - **零侵入、零锁定、零闭源 SDK 依赖（BYOA）**：尊重用户本机已有的 Claude Code / Codex / ACP CLI 与认证环境；**绝不打包受 Anthropic 商业条款约束的闭源 `@anthropic-ai/claude-agent-sdk`**，不残留任何 `ORCA_*` / `CLAUDE_CODE_ENTRYPOINT=orca` 上游标识；默认不改写仓库文件、不向 Agent 注入私有提示词或全局 Skill。
 - **明确非目标（Out-of-Scope / Defer）**：
-  - 不内置浏览器、内置代码编辑器、项目看板、移动端中继或远程 SSH/Docker 编排。
+  - 不内置浏览器、内置代码编辑器、项目看板或远程 SSH/Docker 编排。（v5：移动端 Companion 已改回范围，见 §2。）
   - **多模型本地路由与额度容灾网关留待后续阶段**：本期仅保持子进程环境变量注入边界干净，不内置任何代理网关或协议转换层。
 
 ### 1.4 竞品差异化矩阵
@@ -79,13 +79,13 @@
 | **本地 `shepherd` CLI 工具** | `orca` 全套 CLI 控制指令 | **Trim** | `P1` | 仅保留面向**人类开发者**的轻量快捷指令（如 `shepherd open .`、`shepherd new "fix auth"`），不作为 Agent 强制控制通道注入。 |
 | **内置 Monaco 代码编辑器** | 内嵌完整编辑器 Tab | **Cut** | `Out-of-Scope` | **第一刀砍掉**：绝不在编排器里维护低配编辑器。轻量审阅用原生只读 Diff Inspector，深度手改一键 `⌘O` 交给 Cursor / Zed / VS Code。 |
 | **内嵌 Chromium 浏览器 & Design Mode** | 内置浏览器窗格、DOM 选中标注 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：移除了整套 Chromium 渲染进程与内存黑洞。预览本地服务直接点击端口链接在系统默认浏览器打开。 |
-| **Mobile Companion 与 E2E Relay** | 手机端远程监控 + 端到端加密中继 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：消除常驻公网中继、设备配对安全面与移动端维护成本。 |
+| **Mobile Companion 与中继** | 手机端远程监控 + 端到端加密中继 | **Keep（v5 改回范围）** | `P1` | iPhone、iPad、iPhone Duo 共用一个 iOS App。只做状态查看、审批与作答、Diff 审查、派发新任务；Agent、Worktree 与 git 操作仍只在 Mac 执行。不做账号，靠设备绑定建立信任；经自建中继连接，内容端到端加密，中继只转发密文（[`docs/02-architecture.md`](./02-architecture.md) §3.5）。「完全放行」档位不在移动端提供，锁屏通知不提供批准按钮。 |
 | **远程 SSH / Docker / 云节点管理** | 远程主机与容器化 Worktree 调度 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：Shepherd 专注本机 macOS 极致轻快体验，远程开发交由 IDE Remote 或专门工具承担。 |
 | **Linear / Jira / GitHub 全套看板** | 内置 Issue 看板与状态流转视图 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：不把指挥台变成项目管理软件。远期（P2）最多允许粘贴 Issue URL 自动抓取描述作为任务上下文，绝不建看板界面。 |
 | **复杂 DAG 可视化编排器** | 多阶段节点连线与依赖图执行 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：避免过度抽象与低频“画流程图编程”；日常任务通过清晰的多 Worktree 列表即可直觉管理。 |
 | **定时自动化任务（Cron / Schedules）** | 定时拉起 Agent 执行后台任务 | **Cut** | `Out-of-Scope` | **第一刀砍掉**：定时无人值守任务属于 CI/GitHub Actions 或系统 `launchd` 范畴，留在桌面 App 中反而增加后台常驻复杂度与额度误耗风险。 |
 | **Agent 自驱派活模式（Opt-in）** | 默认注入 `orchestration` + `orca-cli` Skill | **Defer** | `P2` | MVP 坚持零注入（详见 3.2 专题 B）；P2 作为显式 Opt-in 开关，以会话级轻量本地 MCP Server 形态引入。 |
-| **团队云同步 / 多人协作会话** | 团队配置与云端工作区共享 | **Defer** | `P2` | 本期 100% 本地优先（Local-First），零账号登录、零云端依赖。 |
+| **团队云同步 / 多人协作会话** | 团队配置与云端工作区共享 | **Defer** | `P2` | 本期 100% 本地优先（Local-First），Mac 端零账号登录、零云端依赖；Companion 不需要账号，但需要中继（§3.5）。 |
 | **多模型本地路由与额度容灾网关** | （无原生内置，属外部网关能力） | **Defer** | `P2` | **本期明确忽略**：仅在进程启动层保持环境变量注入干净，留待后续阶段按需对接外部本地代理或网关方案。 |
 
 ---
@@ -335,7 +335,7 @@ flowchart LR
 | `⌘,` | 应用内 | 打开 macOS 原生多标签设置窗口（General / Providers / External Apps / Shortcuts） | `MVP` |
 
 4. **视觉质感、明暗主题与窗口记忆**
-   - **外观与材质**：完整适配 macOS Light / Dark / System 自动切换；左侧栏采用系统原生 Vibrancy 半透明材质（`NSVisualEffectView`）；全面使用原生 SF Symbols 与系统动态字体（正文 SF Pro、代码与 Diff 采用 SF Mono 或用户自选等宽字体，支持 `⌘+` / `⌘-` 独立缩放字号）。
+   - **外观与材质**：完整适配 macOS Light / Dark / System 自动切换；侧栏、工具栏、输入框与弹层使用系统的 Liquid Glass 材质（v5：最低系统升到 macOS 27，不再需要毛玻璃回退）；全面使用原生 SF Symbols 与系统动态字体（正文 SF Pro、代码与 Diff 采用 SF Mono 或用户自选等宽字体，支持 `⌘+` / `⌘-` 独立缩放字号）。
    - **无障碍与动效**：遵循 macOS `Reduce Motion` 与 `Increase Contrast` 设置，动画克制干脆（面板切换 ≤ 180ms）。
    - **状态记忆与安全退出**：精确持久化窗口尺寸、位置、侧边栏/Diff 栏宽度、上次打开的 Worktree、各仓库偏好的 Agent 与默认外部 IDE。当用户按 `⌘Q` 退出时，若仍有运行中的 Agent 子进程，弹出原生确认提示（“仍有 N 个代理任务运行中，退出将安全终止它们”），确认后由进程管理器经各 Agent 的看守进程回收其进程组、会话与带进程树标记的后代（覆盖范围见 [`docs/02-architecture.md`](./02-architecture.md) §3.3.3）。
 
@@ -345,7 +345,7 @@ flowchart LR
 
 为保证 Shepherd 真正兑现“比 Electron 轻量一个数量级、具备原生 macOS 丝滑手感”的产品承诺，制定以下可量化验收门槛。
 
-> **路线锁定与口径说明**：基于 [`docs/01-orca-audit.md`](./01-orca-audit.md) 的上游源码实证（`orcad` 虽已 0 Electron 耦合，但锁定 Node v24.22.3 单二进制即 122.59 MB + 11 MB JS bundle + 25 子进程 + 1,202 深度捆绑 RPC + 闭源 Claude Agent SDK 商业条款风险），Shepherd **已最终锁定纯 Swift 6 原生内核路线（仅 Apple Silicon `arm64` · macOS 15.0+ · MIT 开源）**（详见 [`docs/02-architecture.md`](./02-architecture.md)）。下表直接以纯 Swift 6 原生交付标准作为唯一正式验收门禁。
+> **路线锁定与口径说明**：基于 [`docs/01-orca-audit.md`](./01-orca-audit.md) 的上游源码实证（`orcad` 虽已 0 Electron 耦合，但锁定 Node v24.22.3 单二进制即 122.59 MB + 11 MB JS bundle + 25 子进程 + 1,202 深度捆绑 RPC + 闭源 Claude Agent SDK 商业条款风险），Shepherd **已最终锁定纯 Swift 6 原生内核路线（仅 Apple Silicon `arm64` · macOS 27.0+ · MIT 开源）**（详见 [`docs/02-architecture.md`](./02-architecture.md)）。下表直接以纯 Swift 6 原生交付标准作为唯一正式验收门禁。
 >
 > **v2 口径补充**：下表「目标」列是设计目标，尚未实测；「对比参考」列是估算，不是测量值。M0 起逐项用实测替换。
 
