@@ -28,6 +28,15 @@
     "DuoInner.dc.html": {"x": 546, "y": 0, "w": 951, "h": 669, "title": "iPhone Duo · 内屏（展开，深色）", "page": "duo", "radius": 55, "guides": [{"kind": "columns", "count": 1, "size": 2, "align": "center", "color": "rgba(221,91,0,0.5)"}, {"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
     "DuoHalfOpen.dc.html": {"x": 1577, "y": 0, "w": 951, "h": 669, "title": "iPhone Duo · 半开（书本姿态）", "page": "duo", "radius": 55, "guides": [{"kind": "columns", "count": 1, "size": 2, "align": "center", "color": "rgba(221,91,0,0.5)"}, {"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
     "DuoSplit.dc.html": {"x": 546, "y": 789, "w": 951, "h": 669, "title": "iPhone Duo · 内屏分屏（控件各在外侧）", "page": "duo", "radius": 55, "guides": [{"kind": "columns", "count": 1, "size": 2, "align": "center", "color": "rgba(221,91,0,0.5)"}, {"kind": "columns", "count": 1, "size": 85, "align": "start", "offset": 0, "color": "rgba(221,91,0,0.18)"}, {"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
+    "MacSettings.dc.html": {"x": 0, "y": 2040, "w": 1440, "h": 900, "title": "Mac · 设置 › 设备（可交互原型）", "page": "mac", "is_interactive": true},
+    "MacPairingQR.dc.html": {"x": 1520, "y": 2040, "w": 1440, "h": 900, "title": "Mac · 绑定设备：二维码", "page": "mac", "is_interactive": true},
+    "MacPairingVerify.dc.html": {"x": 3040, "y": 2040, "w": 1440, "h": 900, "title": "Mac · 绑定设备：核对验证码", "page": "mac", "is_interactive": true},
+    "iPadPairing.dc.html": {"x": 0, "y": 1908, "w": 1210, "h": 834, "title": "iPad · 未绑定", "page": "ipad", "radius": 18},
+    "iPhonePairing.dc.html": {"x": 0, "y": 994, "w": 402, "h": 874, "title": "iPhone · 未绑定 → 扫码 → 核对（可交互原型）", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhonePairingScan.dc.html": {"x": 482, "y": 994, "w": 402, "h": 874, "title": "iPhone · 扫描二维码", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhonePairingVerify.dc.html": {"x": 964, "y": 994, "w": 402, "h": 874, "title": "iPhone · 核对验证码", "page": "iphone", "is_interactive": true, "radius": 55},
+    "iPhonePairingSettings.dc.html": {"x": 1446, "y": 994, "w": 402, "h": 874, "title": "iPhone · 设置 › 已连接的 Mac", "page": "iphone", "is_interactive": true, "radius": 55},
+    "DuoPairing.dc.html": {"x": 1577, "y": 789, "w": 466, "h": 678, "title": "iPhone Duo · 外屏未绑定", "page": "duo", "guides": [{"kind": "columns", "count": 1, "size": 85, "align": "end", "offset": 0, "color": "rgba(221,91,0,0.18)"}]},
     "Foundations.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 3080, "title": "设计规范 · Liquid Glass × Notion Analysis", "page": "spec"}
   },
   "order": [
@@ -48,17 +57,28 @@
     "DuoInner.dc.html",
     "DuoHalfOpen.dc.html",
     "DuoSplit.dc.html",
+    "MacSettings.dc.html",
+    "MacPairingQR.dc.html",
+    "MacPairingVerify.dc.html",
+    "iPadPairing.dc.html",
+    "iPhonePairing.dc.html",
+    "iPhonePairingScan.dc.html",
+    "iPhonePairingVerify.dc.html",
+    "iPhonePairingSettings.dc.html",
+    "DuoPairing.dc.html",
     "Foundations.dc.html"
   ],
   "notes": {
     "macTitle": {"x": 0, "y": -300, "text": "Mac · macOS 27 Liquid Glass", "kind": "title1", "maxW": 4480, "page": "mac"},
     "macNote": {"x": 4560, "y": 0, "w": 420, "text": "最低系统是 macOS 27，侧栏、工具栏、输入框和弹层直接使用 Liquid Glass，不再需要毛玻璃回退。\n\n主窗口是可交互原型：点侧栏切换会话，试试「允许一次 / 拒绝…」、问题作答卡、权限档位菜单、Diff 按钮和「新建 Worktree」。右侧 Tweaks 可切换「外观：浅色 / 深色」和「降低透明度 / 增强对比度」。", "page": "mac"},
     "ipadTitle": {"x": 0, "y": -300, "text": "iPad · iPadOS 27 Companion", "kind": "title1", "maxW": 2124, "page": "ipad"},
-    "ipadNote": {"x": 2204, "y": 0, "w": 380, "text": "已定（docs v5）：Mobile Companion 改回范围，列为 P1。Agent、Worktree 与 git 操作都留在 Mac 本机执行，iPad 只看状态、作答、审 Diff、发起 PR，执行结果回到 Mac。经自建中继连接，不做账号，靠在 Mac 上扫码绑定设备；内容端到端加密（docs/02 §3.5）。绑定设备与已绑定设备列表的界面还没有画。", "fill": "orange", "page": "ipad"},
+    "ipadNote": {"x": 2204, "y": 0, "w": 380, "text": "已定（docs v5）：Mobile Companion 改回范围，列为 P1。Agent、Worktree 与 git 操作都留在 Mac 本机执行，iPad 只看状态、作答、审 Diff、发起 PR，执行结果回到 Mac。经自建中继连接，不做账号，靠在 Mac 上扫码绑定设备；内容端到端加密（docs/02 §3.5）。未绑定时的首页见下方「iPad · 未绑定」，绑定流程与 iPhone 相同。", "fill": "orange", "page": "ipad"},
     "iphoneTitle": {"x": 0, "y": -300, "text": "iPhone · iOS 27 Companion", "kind": "title1", "maxW": 1848, "page": "iphone"},
     "iphoneNote": {"x": 1928, "y": 0, "w": 380, "text": "已定（docs v5）：同 iPad，Mobile Companion 列为 P1，经自建中继连接。\n\n安全取舍沿用菜单栏的原则：锁屏通知与实时活动不提供「盲批」，只能「打开查看」；审批必须在会话里看到完整命令和上下文后进行，「完全放行」不在移动端提供。", "fill": "orange", "page": "iphone"},
     "duoTitle": {"x": 0, "y": -300, "text": "iPhone Duo · iOS 27.2 折叠屏适配", "kind": "title1", "maxW": 2528, "page": "duo"},
-    "duoNote": {"x": 0, "y": 789, "w": 440, "text": "依据 Apple HIG「Designing for iPhone Duo」（2026-09-09），并在 iPhone Duo 模拟器（iOS 27.2）上核对：\n\n1. 竖向控件：外屏，以及内屏横向时，工具栏、标签栏、导航按钮都移到侧边，与摄像头同侧。从上到下依次是灵动岛（摄像头）、状态栏、工具栏、标签栏。内屏竖向时保留水平栏。\n\n2. 工具栏顺序：最上是返回或关闭，接着是主要操作，其余项保持原分组。Shepherd 外屏：「新任务」在状态下方，图标式标签栏和搜索贴近底部。半开时：返回、创建 PR 在上，视图切换和 Cursor 随后。\n\n3. 控件靠近它影响的内容：内屏侧栏的筛选留在侧栏顶部，对话和 Diff 的操作进右侧竖条。\n\n4. 分屏多任务：两个 App 各自把控件放在靠外的一侧，左边的 Shepherd 在左。\n\n5. Split view：外屏收成单栏，内屏展开；完全展开时前导栏较窄，半折时两栏等宽，内容避开折叠区。\n\n6. 布局只看尺寸类，不写固定宽度；合上与展开时会话、滚动位置、草稿、审批卡都保持，只做小幅调整。\n\n7. 代码侧见 app-resizability：verticalBarEdge / toolbarVerticalEdge、ReservedRegion、启动屏（否则 ITMS-90870）、UIRequiresFullScreen 在 iOS 27 被忽略。\n\n橙色色带是竖条的示意宽度，中线橙线是折痕示意。", "fill": "blue", "page": "duo"}
+    "duoNote": {"x": 0, "y": 789, "w": 440, "text": "依据 Apple HIG「Designing for iPhone Duo」（2026-09-09），并在 iPhone Duo 模拟器（iOS 27.2）上核对：\n\n1. 竖向控件：外屏，以及内屏横向时，工具栏、标签栏、导航按钮都移到侧边，与摄像头同侧。从上到下依次是灵动岛（摄像头）、状态栏、工具栏、标签栏。内屏竖向时保留水平栏。\n\n2. 工具栏顺序：最上是返回或关闭，接着是主要操作，其余项保持原分组。Shepherd 外屏：「新任务」在状态下方，图标式标签栏和搜索贴近底部。半开时：返回、创建 PR 在上，视图切换和 Cursor 随后。\n\n3. 控件靠近它影响的内容：内屏侧栏的筛选留在侧栏顶部，对话和 Diff 的操作进右侧竖条。\n\n4. 分屏多任务：两个 App 各自把控件放在靠外的一侧，左边的 Shepherd 在左。\n\n5. Split view：外屏收成单栏，内屏展开；完全展开时前导栏较窄，半折时两栏等宽，内容避开折叠区。\n\n6. 布局只看尺寸类，不写固定宽度；合上与展开时会话、滚动位置、草稿、审批卡都保持，只做小幅调整。\n\n7. 代码侧见 app-resizability：verticalBarEdge / toolbarVerticalEdge、ReservedRegion、启动屏（否则 ITMS-90870）、UIRequiresFullScreen 在 iOS 27 被忽略。\n\n8. 未绑定（右侧「外屏未绑定」）：没有工具栏和标签栏，竖条里只剩摄像头和状态栏；唯一的「扫描二维码」放在内容底部，绑定流程与 iPhone 相同。\n\n橙色色带是竖条的示意宽度，中线橙线是折痕示意。", "fill": "blue", "page": "duo"},
+    "pairingMacNote": {"x": 4560, "y": 2040, "w": 420, "text": "绑定设备（docs/02 §3.5.3）\n\n入口在「设置 › 设备」（⌘,），不在主窗口工具栏放设置按钮（HIG Settings）。\n\n流程：绑定新设备… → 二维码（一次性、会过期） → 手机扫码后核对 6 位验证码 → 确认绑定。两边数字一致才确认，防止二维码被他人抢先扫描。\n\nSheet 只放「取消」与当前一步的主要操作，不同时出现取消、完成、返回三个按钮（HIG Sheets）。\n\n原型里点「绑定新设备…」可以走完整个流程；虚线框的「模拟手机已扫码」只用于演示，不是产品界面。也可以在右侧 Tweaks 直接切换 Sheet 的步骤。", "page": "mac"},
+    "pairingPhoneNote": {"x": 1928, "y": 994, "w": 380, "text": "未绑定时不显示标签栏，首页只有一个「扫描二维码」按钮。第一次点它时才弹出系统的相机权限请求（HIG Privacy：在用到功能时再请求）。\n\n相机权限说明文案：「Shepherd 用相机扫描 Mac 上显示的绑定二维码。」\n\n原型里虚线框标出的「模拟识别」「模拟 Mac 已确认」只用于演示，不是产品界面。", "page": "iphone"}
   },
   "designSystems": [
     {"title": "Notion Analysis", "namespace": "notionanalysis", "artifact": "https://claude.ai/code/artifact/3cb0cd3a-7c91-4d34-ae95-f318d715d86c", "version": "1795699149-8d64", "copiedAt": "2026-11-26T14:00:00Z"}

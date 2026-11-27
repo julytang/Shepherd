@@ -332,7 +332,7 @@ flowchart LR
 | `⌘.` | 当前会话 | 优雅中断当前正在生成的 Agent Turn | `MVP` |
 | `⌘⇧P` | 当前会话 | 发起 Commit & Create PR 流程 | `MVP` |
 | `⌘\` | 窗口 | 折叠 / 展开左侧 Repo & Worktree 侧边栏（专注模式） | `MVP` |
-| `⌘,` | 应用内 | 打开 macOS 原生多标签设置窗口（General / Providers / External Apps / Shortcuts） | `MVP` |
+| `⌘,` | 应用内 | 打开 macOS 原生多标签设置窗口（General / Providers / External Apps / Shortcuts；P1 加 Devices，管理绑定的手机和平板） | `MVP` |
 
 4. **视觉质感、明暗主题与窗口记忆**
    - **外观与材质**：完整适配 macOS Light / Dark / System 自动切换；侧栏、工具栏、输入框与弹层使用系统的 Liquid Glass 材质（v5：最低系统升到 macOS 27，不再需要毛玻璃回退）；全面使用原生 SF Symbols 与系统动态字体（正文 SF Pro、代码与 Diff 采用 SF Mono 或用户自选等宽字体，支持 `⌘+` / `⌘-` 独立缩放字号）。

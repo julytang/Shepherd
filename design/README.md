@@ -22,19 +22,25 @@ UI 与交互的原型和设计稿，依据 `docs/` 中的方案计划书（重�
 | Mac | `MacArchive.dc.html` | 归档并清理 Worktree（脏文件提醒） |
 | Mac | `MacMenuBar.dc.html` | 菜单栏 Popover 与系统通知 |
 | Mac | `MainDark.dc.html` | 主窗口深色 |
+| Mac | `MacSettings.dc.html` | 设置 › 设备可交互原型：已绑定设备与解绑、绑定新设备 Sheet（二维码 → 核对验证码 → 完成）、中继选择、这台 Mac 的密钥指纹 |
+| Mac | `MacPairingQR.dc.html` / `MacPairingVerify.dc.html` | 绑定 Sheet 的两个步骤：二维码、核对 6 位验证码 |
 | iPad | `iPadWorkspace.dc.html` / `iPadWorkspaceDark.dc.html` | 三栏工作区可交互原型（浅色 / 深色） |
 | iPad | `iPadReview.dc.html` | 竖屏审查 Diff 与创建 PR（深色） |
+| iPad | `iPadPairing.dc.html` | 未绑定首页 |
 | iPhone | `iPhoneFlow.dc.html` / `iPhoneFlowDark.dc.html` | 等你处理 → 审批 → Diff 可交互原型（浅色 / 深色） |
 | iPhone | `iPhoneNewTask.dc.html` | 新建任务 Sheet（深色） |
 | iPhone | `iPhoneLockScreen.dc.html` | 锁屏通知与实时活动 |
+| iPhone | `iPhonePairing.dc.html` | 绑定 Mac 可交互原型：未绑定 → 扫码 → 核对验证码 → 已连接；Tweaks 可切换步骤 |
+| iPhone | `iPhonePairingScan.dc.html` / `iPhonePairingVerify.dc.html` / `iPhonePairingSettings.dc.html` | 扫描二维码、核对验证码、设置 › 已连接的 Mac（含解绑和通知开关） |
 | iPhone Duo | `DuoOuter.dc.html` | 外屏（合上） |
 | iPhone Duo | `DuoInner.dc.html` | 内屏（展开，深色） |
 | iPhone Duo | `DuoHalfOpen.dc.html` | 半开书本姿态：左对话、右 Diff |
 | iPhone Duo | `DuoSplit.dc.html` | 内屏分屏，变窄后回到单栏，控件在各自外侧 |
+| iPhone Duo | `DuoPairing.dc.html` | 外屏未绑定：竖条里只有摄像头和状态栏 |
 | 设计规范 | `Foundations.dc.html` | 两层结构、颜色与深色、五种状态、字体、玻璃材质、核心组件、四端适配 |
 
 ## 待补
 
-- **绑定设备的界面还没有画**：Mac 上的二维码与短验证码确认、「已绑定设备」列表，手机端未绑定时的扫码页。方案见 `docs/02-architecture.md` §3.5。
+- **绑定流程只画了正常路径**：二维码过期、验证码不一致、中继连不上、相机权限被拒的界面还没有单独画。方案见 `docs/02-architecture.md` §3.5。
 - **设计系统没有红色与深色主题**：「出错」暂用 accent-pink，深色值为提议值。
 - **系统版本**：最低 macOS 27、iOS / iPadOS 27，直接使用 Liquid Glass，没有回退样式。
